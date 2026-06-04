@@ -1,0 +1,215 @@
+// Prisma schema — production data model for the Training Center CRM.
+//
+// The presentation prototype runs on a seeded in-memory store (see
+// src/data/seed.ts) so it needs no database. This schema is the source of
+// truth for the production SQLite layer: run `npx prisma migrate dev` once the
+// Tauri/SQLite backend is wired up.
+//
+// Rules enforced here (per CLAUDE.md):
+//   - UUID primary keys everywhere
+//   - createdAt / updatedAt on every model
+//   - soft delete (deletedAt) for Student and PaymentDoc
+//   - attendance is append-only; corrections create override rows
+//   - file paths only, never blobs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  teacher
+  salesperson
+  finance_staff
+}
+
+enum EnrollmentStatus {
+  prospect
+  confirmed
+  dropped
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  excused
+}
+
+enum HomeworkStatus {
+  completed
+  not_completed
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum ClassStatus {
+  active
+  completed
+  archived
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String     @map("password_hash") // bcrypt, 12+ salt rounds
+  role         Role
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  taughtSessions   Session[]       @relation("TeacherSessions")
+  taughtClasses    Class[]         @relation("TeacherClasses")
+  markedAttendance Attendance[]
+  uploadedDocs     PaymentDoc[]
+  recordedHomework Homework[]
+  referredStudents Student[]       @relation("SalespersonStudents")
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model Class {
+  id         String      @id @default(uuid())
+  name       String
+  courseName String      @map("course_name")
+  teacherId  String?     @map("teacher_id")
+  status     ClassStatus @default(active)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  teacher    User?            @relation("TeacherClasses", fields: [teacherId], references: [id])
+  enrollments ClassStudent[]
+  sessions   Session[]
+
+  @@map("classes")
+}
+
+// Join table for class enrollment (Học viên ghi danh vào lớp).
+model ClassStudent {
+  classId    String   @map("class_id")
+  studentId  String   @map("student_id")
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+
+  class   Class   @relation(fields: [classId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@id([classId, studentId])
+  @@map("class_students")
+}
+
+model Student {
+  id               String           @id @default(uuid())
+  name             String // Họ và tên
+  age              Int? // Tuổi
+  phone            String? // Số điện thoại
+  jobTitle         String?          @map("job_title") // Vị trí công việc
+  goal             String? // Nguyện vọng
+  enrollmentStatus EnrollmentStatus @default(prospect) @map("enrollment_status")
+  cccdNumber       String?          @map("cccd_number") // 12-digit, required when confirmed
+  salespersonId    String?          @map("salesperson_id")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  deletedAt        DateTime?        @map("deleted_at") // soft delete
+
+  salesperson User?          @relation("SalespersonStudents", fields: [salespersonId], references: [id])
+  attendance  Attendance[]
+  paymentDocs PaymentDoc[]
+  homework    Homework[]
+  enrollments ClassStudent[]
+
+  @@map("students")
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  googleEventId String?  @unique @map("google_event_id") // sync dedup key
+  title         String
+  startTime     DateTime @map("start_time")
+  endTime       DateTime @map("end_time")
+  teacherId     String?  @map("teacher_id")
+  classId       String?  @map("class_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  teacher    User?        @relation("TeacherSessions", fields: [teacherId], references: [id])
+  class      Class?       @relation(fields: [classId], references: [id])
+  attendance Attendance[]
+  homework   Homework[]
+
+  @@map("sessions")
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  studentId  String           @map("student_id")
+  sessionId  String           @map("session_id")
+  status     AttendanceStatus
+  markedBy   String           @map("marked_by")
+  markedAt   DateTime         @map("marked_at")
+  isOverride Boolean          @default(false) @map("is_override") // corrections = new row
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  student   Student @relation(fields: [studentId], references: [id])
+  session   Session @relation(fields: [sessionId], references: [id])
+  markedByUser User @relation(fields: [markedBy], references: [id])
+
+  @@map("attendance")
+}
+
+model PaymentDoc {
+  id          String    @id @default(uuid())
+  studentId   String    @map("student_id")
+  amount      Int // VND
+  paymentDate DateTime  @map("payment_date")
+  filePath    String    @map("file_path") // path only — never a blob
+  note        String?
+  uploadedBy  String    @map("uploaded_by")
+  uploadedAt  DateTime  @map("uploaded_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at") // soft delete
+
+  student        Student @relation(fields: [studentId], references: [id])
+  uploadedByUser User    @relation(fields: [uploadedBy], references: [id])
+
+  @@map("payment_docs")
+}
+
+model Homework {
+  id        String         @id @default(uuid())
+  studentId String         @map("student_id")
+  sessionId String         @map("session_id")
+  status    HomeworkStatus
+  recordedBy String        @map("recorded_by")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  student        Student @relation(fields: [studentId], references: [id])
+  session        Session @relation(fields: [sessionId], references: [id])
+  recordedByUser User    @relation(fields: [recordedBy], references: [id])
+
+  @@map("homework")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  action    String // e.g. "login", "student.status_change", "payment_doc.delete"
+  detail    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
