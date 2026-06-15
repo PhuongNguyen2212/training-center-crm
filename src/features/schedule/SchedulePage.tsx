@@ -19,6 +19,7 @@ import { Modal } from "@/components/Modal";
 import { seedUsers } from "@/data/seed";
 import type { Session } from "@/types";
 import {
+  calendarIdSource,
   connectGoogle,
   createEvent,
   deleteEvent,
@@ -26,6 +27,7 @@ import {
   isConnected,
   isGoogleConfigured,
   listEvents,
+  setCalendarId,
   updateEvent,
 } from "@/lib/google-calendar";
 
@@ -76,6 +78,14 @@ export default function SchedulePage() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [connected, setConnected] = useState(isConnected());
   const [error, setError] = useState<string | null>(null);
+  const [calId, setCalId] = useState(getCalendarId());
+  const [calSaved, setCalSaved] = useState(false);
+
+  const saveCalendarId = () => {
+    setCalendarId(calId);
+    setCalSaved(true);
+    setTimeout(() => setCalSaved(false), 2500);
+  };
 
   const visible = useMemo(
     () =>
@@ -250,6 +260,37 @@ export default function SchedulePage() {
           <CloudOff size={16} />
           Chưa cấu hình Google Calendar (thiếu <code className="mx-1">VITE_GOOGLE_CLIENT_ID</code>)
           — đang chạy ở chế độ cục bộ. Xem hướng dẫn trong <code>docs/google-calendar-setup.md</code>.
+        </div>
+      )}
+
+      {/* Calendar ID config (admin) — overrides the build-time env so the
+          hosted demo always targets the dedicated calendar, not "primary". */}
+      {googleConfigured && canEdit && (
+        <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <label className="label">Calendar ID (lịch chỉ định)</label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              className="input min-w-[260px] flex-1"
+              value={calId}
+              onChange={(e) => setCalId(e.target.value)}
+              placeholder="vd: abc123@group.calendar.google.com (hoặc primary)"
+            />
+            <button className="btn-outline" onClick={saveCalendarId}>
+              Lưu
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            Đang dùng: <code className="text-slate-600">{getCalendarId()}</code>{" "}
+            {calendarIdSource() === "override"
+              ? "(đặt trong app)"
+              : calendarIdSource() === "env"
+                ? "(từ biến môi trường)"
+                : "(mặc định — “primary” là tất cả lịch)"}
+            . Lưu xong bấm <strong>Đồng bộ</strong> lại.
+            {calSaved && (
+              <span className="ml-1 font-medium text-emerald-600">Đã lưu ✓</span>
+            )}
+          </p>
         </div>
       )}
 
