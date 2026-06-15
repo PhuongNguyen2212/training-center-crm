@@ -12,50 +12,14 @@
 // for the hosted web demo.
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-const ENV_CALENDAR_ID =
-  (import.meta.env.VITE_GOOGLE_CALENDAR_ID as string | undefined) || "";
+const CALENDAR_ID =
+  (import.meta.env.VITE_GOOGLE_CALENDAR_ID as string | undefined) || "primary";
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const GSI_SRC = "https://accounts.google.com/gsi/client";
 const API_BASE = "https://www.googleapis.com/calendar/v3";
 
-// A runtime override (set in the UI, persisted in localStorage) takes priority
-// over the build-time env var. This makes the hosted demo work even when the
-// Vercel env var wasn't baked into the build — the user can paste the dedicated
-// Calendar ID directly in the app instead of getting "primary" (all calendars).
-const CALENDAR_OVERRIDE_KEY = "crm-google-calendar-id";
-
 export const isGoogleConfigured = (): boolean => Boolean(CLIENT_ID);
-
-export const getCalendarId = (): string => {
-  let override = "";
-  try {
-    override = localStorage.getItem(CALENDAR_OVERRIDE_KEY) ?? "";
-  } catch {
-    /* localStorage unavailable */
-  }
-  return override.trim() || ENV_CALENDAR_ID.trim() || "primary";
-};
-
-/** Set/clear the runtime Calendar ID override. Empty string reverts to env. */
-export const setCalendarId = (id: string): void => {
-  const v = id.trim();
-  try {
-    if (v) localStorage.setItem(CALENDAR_OVERRIDE_KEY, v);
-    else localStorage.removeItem(CALENDAR_OVERRIDE_KEY);
-  } catch {
-    /* localStorage unavailable */
-  }
-};
-
-/** Where the active Calendar ID comes from — for showing the user. */
-export const calendarIdSource = (): "override" | "env" | "default" => {
-  try {
-    if ((localStorage.getItem(CALENDAR_OVERRIDE_KEY) ?? "").trim()) return "override";
-  } catch {
-    /* ignore */
-  }
-  return ENV_CALENDAR_ID.trim() ? "env" : "default";
-};
+export const getCalendarId = (): string => CALENDAR_ID;
 
 let gisLoaded = false;
 let tokenClient: TokenClient | null = null;
@@ -180,7 +144,7 @@ function sessionToEvent(s: Omit<CalendarSession, "googleEventId">) {
   };
 }
 
-const cal = () => encodeURIComponent(getCalendarId());
+const cal = () => encodeURIComponent(CALENDAR_ID);
 
 /** Pull events from ~30 days ago onward (sync strategy in CLAUDE.md). */
 export async function listEvents(): Promise<CalendarSession[]> {
