@@ -29,7 +29,10 @@ impl R2 {
         let secret = crate::secret!("R2_SECRET_ACCESS_KEY")
             .ok_or_else(|| AppError::new("thiếu R2_SECRET_ACCESS_KEY"))?;
 
-        let region = Region::Custom { region: "auto".to_string(), endpoint };
+        let region = Region::Custom {
+            region: "auto".to_string(),
+            endpoint,
+        };
         let creds = Credentials::new(Some(&key), Some(&secret), None, None, None)
             .map_err(|e| AppError::new(format!("Thông tin R2 không hợp lệ: {e}")))?;
         let bucket = Bucket::new(&bucket_name, region, creds)
@@ -45,7 +48,9 @@ pub fn ext_for_type(file_type: &str) -> AppResult<&'static str> {
         "image/jpeg" => Ok("jpg"),
         "image/png" => Ok("png"),
         "application/pdf" => Ok("pdf"),
-        _ => Err(AppError::new("Định dạng tệp không hợp lệ (chỉ JPEG, PNG, PDF).")),
+        _ => Err(AppError::new(
+            "Định dạng tệp không hợp lệ (chỉ JPEG, PNG, PDF).",
+        )),
     }
 }
 
@@ -120,8 +125,14 @@ mod tests {
 
     #[test]
     fn object_key_uses_extension() {
-        assert_eq!(object_key("abc", "application/pdf").unwrap(), "payment_docs/abc.pdf");
-        assert_eq!(object_key("xyz", "image/png").unwrap(), "payment_docs/xyz.png");
+        assert_eq!(
+            object_key("abc", "application/pdf").unwrap(),
+            "payment_docs/abc.pdf"
+        );
+        assert_eq!(
+            object_key("xyz", "image/png").unwrap(),
+            "payment_docs/xyz.png"
+        );
     }
 
     #[test]

@@ -41,8 +41,7 @@ pub async fn current_user(db: &Db, sessions: &Sessions, token: &str) -> AppResul
         |r| Ok((r.get::<String>(0)?, r.get::<String>(1)?)),
     )
     .await?;
-    let (role, status) =
-        row.ok_or_else(|| AppError::new("Người dùng không tồn tại."))?;
+    let (role, status) = row.ok_or_else(|| AppError::new("Người dùng không tồn tại."))?;
 
     if status == "suspended" {
         return Err(AppError::new("Tài khoản đã bị treo."));
@@ -166,17 +165,32 @@ mod tests {
 
     #[test]
     fn require_role_allows_and_denies() {
-        let admin = AuthUser { id: "x".into(), role: "admin".into() };
-        let teacher = AuthUser { id: "y".into(), role: "teacher".into() };
+        let admin = AuthUser {
+            id: "x".into(),
+            role: "admin".into(),
+        };
+        let teacher = AuthUser {
+            id: "y".into(),
+            role: "teacher".into(),
+        };
         assert!(require_role(&admin, &["admin"]).is_ok());
         assert!(require_role(&teacher, &["admin"]).is_err());
     }
 
     #[test]
     fn capability_mirrors_matrix_deny_by_default() {
-        let teacher = AuthUser { id: "t".into(), role: "teacher".into() };
-        let sales = AuthUser { id: "s".into(), role: "salesperson".into() };
-        let finance = AuthUser { id: "f".into(), role: "finance_staff".into() };
+        let teacher = AuthUser {
+            id: "t".into(),
+            role: "teacher".into(),
+        };
+        let sales = AuthUser {
+            id: "s".into(),
+            role: "salesperson".into(),
+        };
+        let finance = AuthUser {
+            id: "f".into(),
+            role: "finance_staff".into(),
+        };
         // Teacher can mark attendance but not manage users or upload payments.
         assert!(require_capability(&teacher, Capability::AttendanceMark).is_ok());
         assert!(require_capability(&teacher, Capability::ManageUsers).is_err());

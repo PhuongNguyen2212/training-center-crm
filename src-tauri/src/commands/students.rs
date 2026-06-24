@@ -75,7 +75,9 @@ pub async fn list_students_impl(
     } else {
         query_all(
             &db.conn,
-            &format!("SELECT {COLS} FROM students WHERE deleted_at IS NULL ORDER BY created_at DESC"),
+            &format!(
+                "SELECT {COLS} FROM students WHERE deleted_at IS NULL ORDER BY created_at DESC"
+            ),
             (),
             map_student,
         )
@@ -113,7 +115,13 @@ pub async fn create_student_impl(
             ],
         )
         .await?;
-    write_audit(&db.conn, &user.id, "student.create", &format!("Thêm học viên {}", input.name)).await?;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "student.create",
+        &format!("Thêm học viên {}", input.name),
+    )
+    .await?;
     one_student(&db.conn, &id).await
 }
 
@@ -138,7 +146,9 @@ pub async fn update_student_impl(
     .ok_or_else(|| AppError::new("Không tìm thấy học viên."))?;
 
     if user.role == "salesperson" && owner.as_deref() != Some(user.id.as_str()) {
-        return Err(AppError::new("Bạn chỉ được sửa học viên do mình phụ trách."));
+        return Err(AppError::new(
+            "Bạn chỉ được sửa học viên do mình phụ trách.",
+        ));
     }
 
     db.conn
@@ -146,9 +156,15 @@ pub async fn update_student_impl(
             "UPDATE students SET name=?2,age=?3,phone=?4,job_title=?5,goal=?6,
              enrollment_status=?7,cccd_number=?8,updated_at=?9 WHERE id=?1",
             libsql::params![
-                id.to_string(), input.name.trim().to_string(), input.age, input.phone.clone(),
-                input.job_title.clone(), input.goal.clone(), input.enrollment_status.clone(),
-                input.cccd_number.clone(), now_iso()
+                id.to_string(),
+                input.name.trim().to_string(),
+                input.age,
+                input.phone.clone(),
+                input.job_title.clone(),
+                input.goal.clone(),
+                input.enrollment_status.clone(),
+                input.cccd_number.clone(),
+                now_iso()
             ],
         )
         .await?;
@@ -158,11 +174,20 @@ pub async fn update_student_impl(
             &db.conn,
             &user.id,
             "student.status_change",
-            &format!("{}: {} → {}", input.name, prev_status, input.enrollment_status),
+            &format!(
+                "{}: {} → {}",
+                input.name, prev_status, input.enrollment_status
+            ),
         )
         .await?;
     } else {
-        write_audit(&db.conn, &user.id, "student.update", &format!("Cập nhật {}", input.name)).await?;
+        write_audit(
+            &db.conn,
+            &user.id,
+            "student.update",
+            &format!("Cập nhật {}", input.name),
+        )
+        .await?;
     }
 
     one_student(&db.conn, id).await
@@ -186,7 +211,13 @@ pub async fn soft_delete_student_impl(
     if affected == 0 {
         return Err(AppError::new("Không tìm thấy học viên."));
     }
-    write_audit(&db.conn, &user.id, "student.soft_delete", &format!("Ẩn học viên {id}")).await?;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "student.soft_delete",
+        &format!("Ẩn học viên {id}"),
+    )
+    .await?;
     Ok(())
 }
 
@@ -194,24 +225,44 @@ pub async fn soft_delete_student_impl(
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_students(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<Student>> {
+pub async fn list_students(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<Student>> {
     list_students_impl(&token, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn create_student(token: String, input: StudentInput, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Student> {
+pub async fn create_student(
+    token: String,
+    input: StudentInput,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Student> {
     create_student_impl(&token, input, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn update_student(token: String, id: String, input: StudentInput, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Student> {
+pub async fn update_student(
+    token: String,
+    id: String,
+    input: StudentInput,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Student> {
     update_student_impl(&token, &id, input, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn soft_delete_student(token: String, id: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<()> {
+pub async fn soft_delete_student(
+    token: String,
+    id: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<()> {
     soft_delete_student_impl(&token, &id, &db, &sessions).await
 }

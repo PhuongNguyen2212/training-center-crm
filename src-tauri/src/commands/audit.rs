@@ -35,7 +35,11 @@ pub async fn list_class_notifications_impl(
     .await
 }
 
-pub async fn list_audit_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Vec<AuditLog>> {
+pub async fn list_audit_impl(
+    token: &str,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Vec<AuditLog>> {
     let user = current_user(db, sessions, token).await?;
     // Everyone may view their OWN activity; only admin sees everyone's.
     if user.role == "admin" {
@@ -61,12 +65,20 @@ pub async fn list_audit_impl(token: &str, db: &Db, sessions: &Sessions) -> AppRe
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_class_notifications(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<AuditLog>> {
+pub async fn list_class_notifications(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<AuditLog>> {
     list_class_notifications_impl(&token, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_audit(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<AuditLog>> {
+pub async fn list_audit(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<AuditLog>> {
     list_audit_impl(&token, &db, &sessions).await
 }

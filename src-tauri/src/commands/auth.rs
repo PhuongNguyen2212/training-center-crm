@@ -67,7 +67,9 @@ pub async fn login_impl(
 
     if status == "suspended" {
         let _ = write_audit(&db.conn, &id, "login.blocked", "Tài khoản bị treo").await;
-        return Err(AppError::new("Tài khoản đã bị treo. Liên hệ quản trị viên."));
+        return Err(AppError::new(
+            "Tài khoản đã bị treo. Liên hệ quản trị viên.",
+        ));
     }
 
     clear_failures(guard, &key);
@@ -77,7 +79,14 @@ pub async fn login_impl(
 
     Ok(LoginResponse {
         token,
-        user: User { id, name, email: email_db, role, status, created_at },
+        user: User {
+            id,
+            name,
+            email: email_db,
+            role,
+            status,
+            created_at,
+        },
     })
 }
 
@@ -131,7 +140,13 @@ pub async fn change_own_password_impl(
             libsql::params![user.id.clone(), new_hash, crate::util::now_iso()],
         )
         .await?;
-    write_audit(&db.conn, &user.id, "account.change_password", "Tự đổi mật khẩu").await?;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "account.change_password",
+        "Tự đổi mật khẩu",
+    )
+    .await?;
     Ok(())
 }
 

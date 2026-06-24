@@ -46,7 +46,11 @@ async fn one_session(conn: &Connection, id: &str) -> AppResult<Session> {
 
 // ---- Transport-agnostic logic ----
 
-pub async fn list_sessions_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Vec<Session>> {
+pub async fn list_sessions_impl(
+    token: &str,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Vec<Session>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::ScheduleView)?;
     if user.role == "teacher" {
@@ -58,11 +62,23 @@ pub async fn list_sessions_impl(token: &str, db: &Db, sessions: &Sessions) -> Ap
         )
         .await
     } else {
-        query_all(&db.conn, &format!("SELECT {COLS} FROM sessions ORDER BY start_time"), (), map_session).await
+        query_all(
+            &db.conn,
+            &format!("SELECT {COLS} FROM sessions ORDER BY start_time"),
+            (),
+            map_session,
+        )
+        .await
     }
 }
 
-pub async fn create_session_impl(token: &str, input: SessionInput, db: &Db, sessions: &Sessions, gcal: &GCal) -> AppResult<Session> {
+pub async fn create_session_impl(
+    token: &str,
+    input: SessionInput,
+    db: &Db,
+    sessions: &Sessions,
+    gcal: &GCal,
+) -> AppResult<Session> {
     let user = current_user(db, sessions, token).await?;
     let teacher_id = match user.role.as_str() {
         "admin" => input.teacher_id.clone(),
@@ -78,14 +94,36 @@ pub async fn create_session_impl(token: &str, input: SessionInput, db: &Db, sess
             libsql::params![id.clone(), input.google_event_id.clone(), input.title.clone(), input.start_time.clone(), input.end_time.clone(), teacher_id, input.class_id.clone(), now],
         )
         .await?;
-    write_audit(&db.conn, &user.id, "schedule.create", &format!("Tạo buổi học {}", input.title)).await?;
-    if let Ok(Some(eid)) = gcal.insert_event(&input.title, &input.start_time, &input.end_time).await {
-        let _ = db.conn.execute("UPDATE sessions SET google_event_id=?2 WHERE id=?1", libsql::params![id.clone(), eid]).await;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "schedule.create",
+        &format!("Tạo buổi học {}", input.title),
+    )
+    .await?;
+    if let Ok(Some(eid)) = gcal
+        .insert_event(&input.title, &input.start_time, &input.end_time)
+        .await
+    {
+        let _ = db
+            .conn
+            .execute(
+                "UPDATE sessions SET google_event_id=?2 WHERE id=?1",
+                libsql::params![id.clone(), eid],
+            )
+            .await;
     }
     one_session(&db.conn, &id).await
 }
 
-pub async fn update_session_impl(token: &str, id: String, input: SessionInput, db: &Db, sessions: &Sessions, gcal: &GCal) -> AppResult<Session> {
+pub async fn update_session_impl(
+    token: &str,
+    id: String,
+    input: SessionInput,
+    db: &Db,
+    sessions: &Sessions,
+    gcal: &GCal,
+) -> AppResult<Session> {
     let user = current_user(db, sessions, token).await?;
     let teacher_id = if user.role == "admin" {
         input.teacher_id.clone()
@@ -111,21 +149,44 @@ pub async fn update_session_impl(token: &str, id: String, input: SessionInput, d
             libsql::params![id.clone(), input.title.clone(), input.start_time.clone(), input.end_time.clone(), teacher_id, input.class_id.clone(), now_iso()],
         )
         .await?;
-    write_audit(&db.conn, &user.id, "schedule.edit", &format!("Sửa buổi học {id}")).await?;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "schedule.edit",
+        &format!("Sửa buổi học {id}"),
+    )
+    .await?;
     match google_event_id(&db.conn, &id).await? {
         Some(eid) => {
-            let _ = gcal.update_event(&eid, &input.title, &input.start_time, &input.end_time).await;
+            let _ = gcal
+                .update_event(&eid, &input.title, &input.start_time, &input.end_time)
+                .await;
         }
         None => {
-            if let Ok(Some(eid)) = gcal.insert_event(&input.title, &input.start_time, &input.end_time).await {
-                let _ = db.conn.execute("UPDATE sessions SET google_event_id=?2 WHERE id=?1", libsql::params![id.clone(), eid]).await;
+            if let Ok(Some(eid)) = gcal
+                .insert_event(&input.title, &input.start_time, &input.end_time)
+                .await
+            {
+                let _ = db
+                    .conn
+                    .execute(
+                        "UPDATE sessions SET google_event_id=?2 WHERE id=?1",
+                        libsql::params![id.clone(), eid],
+                    )
+                    .await;
             }
         }
     }
     one_session(&db.conn, &id).await
 }
 
-pub async fn delete_session_impl(token: &str, id: String, db: &Db, sessions: &Sessions, gcal: &GCal) -> AppResult<()> {
+pub async fn delete_session_impl(
+    token: &str,
+    id: String,
+    db: &Db,
+    sessions: &Sessions,
+    gcal: &GCal,
+) -> AppResult<()> {
     let user = current_user(db, sessions, token).await?;
     if user.role == "teacher" {
         let owner: Option<String> = query_opt(
@@ -143,19 +204,37 @@ pub async fn delete_session_impl(token: &str, id: String, db: &Db, sessions: &Se
         return Err(AppError::new("Bạn không có quyền xóa buổi học."));
     }
     let eid = google_event_id(&db.conn, &id).await?;
-    db.conn.execute("DELETE FROM sessions WHERE id=?1", libsql::params![id.clone()]).await?;
-    write_audit(&db.conn, &user.id, "schedule.delete", &format!("Xóa buổi học {id}")).await?;
+    db.conn
+        .execute(
+            "DELETE FROM sessions WHERE id=?1",
+            libsql::params![id.clone()],
+        )
+        .await?;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "schedule.delete",
+        &format!("Xóa buổi học {id}"),
+    )
+    .await?;
     if let Some(eid) = eid {
         let _ = gcal.delete_event(&eid).await;
     }
     Ok(())
 }
 
-pub async fn upsert_sessions_from_google_impl(token: &str, incoming: Vec<SessionInput>, db: &Db, sessions: &Sessions) -> AppResult<Vec<Session>> {
+pub async fn upsert_sessions_from_google_impl(
+    token: &str,
+    incoming: Vec<SessionInput>,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Vec<Session>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::ScheduleEdit)?;
     for ev in &incoming {
-        let Some(gid) = &ev.google_event_id else { continue };
+        let Some(gid) = &ev.google_event_id else {
+            continue;
+        };
         let existing = query_opt(
             &db.conn,
             "SELECT id FROM sessions WHERE google_event_id=?1",
@@ -181,38 +260,78 @@ pub async fn upsert_sessions_from_google_impl(token: &str, incoming: Vec<Session
                 .await?;
         }
     }
-    write_audit(&db.conn, &user.id, "schedule.sync", &format!("Đồng bộ {} buổi từ Google", incoming.len())).await?;
-    query_all(&db.conn, &format!("SELECT {COLS} FROM sessions ORDER BY start_time"), (), map_session).await
+    write_audit(
+        &db.conn,
+        &user.id,
+        "schedule.sync",
+        &format!("Đồng bộ {} buổi từ Google", incoming.len()),
+    )
+    .await?;
+    query_all(
+        &db.conn,
+        &format!("SELECT {COLS} FROM sessions ORDER BY start_time"),
+        (),
+        map_session,
+    )
+    .await
 }
 
 // ---- Tauri command wrappers ----
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_sessions(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<Session>> {
+pub async fn list_sessions(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<Session>> {
     list_sessions_impl(&token, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn create_session(token: String, input: SessionInput, db: State<'_, Db>, sessions: State<'_, Sessions>, gcal: State<'_, GCal>) -> AppResult<Session> {
+pub async fn create_session(
+    token: String,
+    input: SessionInput,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    gcal: State<'_, GCal>,
+) -> AppResult<Session> {
     create_session_impl(&token, input, &db, &sessions, &gcal).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn update_session(token: String, id: String, input: SessionInput, db: State<'_, Db>, sessions: State<'_, Sessions>, gcal: State<'_, GCal>) -> AppResult<Session> {
+pub async fn update_session(
+    token: String,
+    id: String,
+    input: SessionInput,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    gcal: State<'_, GCal>,
+) -> AppResult<Session> {
     update_session_impl(&token, id, input, &db, &sessions, &gcal).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn delete_session(token: String, id: String, db: State<'_, Db>, sessions: State<'_, Sessions>, gcal: State<'_, GCal>) -> AppResult<()> {
+pub async fn delete_session(
+    token: String,
+    id: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    gcal: State<'_, GCal>,
+) -> AppResult<()> {
     delete_session_impl(&token, id, &db, &sessions, &gcal).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn upsert_sessions_from_google(token: String, incoming: Vec<SessionInput>, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<Session>> {
+pub async fn upsert_sessions_from_google(
+    token: String,
+    incoming: Vec<SessionInput>,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<Session>> {
     upsert_sessions_from_google_impl(&token, incoming, &db, &sessions).await
 }

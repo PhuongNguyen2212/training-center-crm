@@ -29,19 +29,31 @@ fn map_doc(r: &Row) -> libsql::Result<PaymentDoc> {
 
 // ---- Transport-agnostic logic ----
 
-pub async fn list_payment_docs_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Vec<PaymentDoc>> {
+pub async fn list_payment_docs_impl(
+    token: &str,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Vec<PaymentDoc>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::PaymentView)?;
     query_all(
         &db.conn,
-        &format!("SELECT {COLS} FROM payment_docs WHERE deleted_at IS NULL ORDER BY uploaded_at DESC"),
+        &format!(
+            "SELECT {COLS} FROM payment_docs WHERE deleted_at IS NULL ORDER BY uploaded_at DESC"
+        ),
         (),
         map_doc,
     )
     .await
 }
 
-pub async fn create_payment_doc_impl(token: &str, input: PaymentDocInput, db: &Db, sessions: &Sessions, r2: &R2) -> AppResult<PaymentDoc> {
+pub async fn create_payment_doc_impl(
+    token: &str,
+    input: PaymentDocInput,
+    db: &Db,
+    sessions: &Sessions,
+    r2: &R2,
+) -> AppResult<PaymentDoc> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::PaymentUpload)?;
 
@@ -68,13 +80,30 @@ pub async fn create_payment_doc_impl(token: &str, input: PaymentDocInput, db: &D
         let _ = storage::delete(r2, &key).await; // roll back the orphaned object
         return Err(e.into());
     }
-    write_audit(&db.conn, &user.id, "payment_doc.upload", &format!("Tải lên chứng từ {}", input.file_name)).await?;
-    query_opt(&db.conn, &format!("SELECT {COLS} FROM payment_docs WHERE id=?1"), libsql::params![id.clone()], map_doc)
-        .await?
-        .ok_or_else(|| AppError::new("Không tìm thấy chứng từ vừa tạo."))
+    write_audit(
+        &db.conn,
+        &user.id,
+        "payment_doc.upload",
+        &format!("Tải lên chứng từ {}", input.file_name),
+    )
+    .await?;
+    query_opt(
+        &db.conn,
+        &format!("SELECT {COLS} FROM payment_docs WHERE id=?1"),
+        libsql::params![id.clone()],
+        map_doc,
+    )
+    .await?
+    .ok_or_else(|| AppError::new("Không tìm thấy chứng từ vừa tạo."))
 }
 
-pub async fn read_payment_doc_impl(token: &str, id: String, db: &Db, sessions: &Sessions, r2: &R2) -> AppResult<PaymentDocFile> {
+pub async fn read_payment_doc_impl(
+    token: &str,
+    id: String,
+    db: &Db,
+    sessions: &Sessions,
+    r2: &R2,
+) -> AppResult<PaymentDocFile> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::PaymentView)?;
 
@@ -89,10 +118,19 @@ pub async fn read_payment_doc_impl(token: &str, id: String, db: &Db, sessions: &
 
     let key = storage::object_key(&id, &file_type)?;
     let bytes = storage::get(r2, &key).await?;
-    Ok(PaymentDocFile { file_name, file_type, base64: STANDARD.encode(bytes) })
+    Ok(PaymentDocFile {
+        file_name,
+        file_type,
+        base64: STANDARD.encode(bytes),
+    })
 }
 
-pub async fn soft_delete_payment_doc_impl(token: &str, id: String, db: &Db, sessions: &Sessions) -> AppResult<()> {
+pub async fn soft_delete_payment_doc_impl(
+    token: &str,
+    id: String,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<()> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::PaymentDelete)?;
     db.conn
@@ -101,7 +139,13 @@ pub async fn soft_delete_payment_doc_impl(token: &str, id: String, db: &Db, sess
             libsql::params![id.clone(), now_iso()],
         )
         .await?;
-    write_audit(&db.conn, &user.id, "payment_doc.delete", &format!("Xóa chứng từ {id}")).await?;
+    write_audit(
+        &db.conn,
+        &user.id,
+        "payment_doc.delete",
+        &format!("Xóa chứng từ {id}"),
+    )
+    .await?;
     Ok(())
 }
 
@@ -109,24 +153,45 @@ pub async fn soft_delete_payment_doc_impl(token: &str, id: String, db: &Db, sess
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_payment_docs(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<PaymentDoc>> {
+pub async fn list_payment_docs(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<PaymentDoc>> {
     list_payment_docs_impl(&token, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn create_payment_doc(token: String, input: PaymentDocInput, db: State<'_, Db>, sessions: State<'_, Sessions>, r2: State<'_, R2>) -> AppResult<PaymentDoc> {
+pub async fn create_payment_doc(
+    token: String,
+    input: PaymentDocInput,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    r2: State<'_, R2>,
+) -> AppResult<PaymentDoc> {
     create_payment_doc_impl(&token, input, &db, &sessions, &r2).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn read_payment_doc(token: String, id: String, db: State<'_, Db>, sessions: State<'_, Sessions>, r2: State<'_, R2>) -> AppResult<PaymentDocFile> {
+pub async fn read_payment_doc(
+    token: String,
+    id: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    r2: State<'_, R2>,
+) -> AppResult<PaymentDocFile> {
     read_payment_doc_impl(&token, id, &db, &sessions, &r2).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn soft_delete_payment_doc(token: String, id: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<()> {
+pub async fn soft_delete_payment_doc(
+    token: String,
+    id: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<()> {
     soft_delete_payment_doc_impl(&token, id, &db, &sessions).await
 }

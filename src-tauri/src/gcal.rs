@@ -51,7 +51,10 @@ impl GCal {
             .or_else(|| {
                 option_env!("GOOGLE_SERVICE_ACCOUNT_B64").and_then(|b| {
                     use base64::{engine::general_purpose::STANDARD, Engine as _};
-                    STANDARD.decode(b).ok().and_then(|v| String::from_utf8(v).ok())
+                    STANDARD
+                        .decode(b)
+                        .ok()
+                        .and_then(|v| String::from_utf8(v).ok())
                 })
             });
         let sa = json.and_then(|s| serde_json::from_str::<ServiceAccount>(&s).ok());
@@ -63,7 +66,9 @@ impl GCal {
                 token: Mutex::new(None),
             })),
             None => {
-                eprintln!("[gcal] không đọc được service account key — tắt đồng bộ Google Calendar");
+                eprintln!(
+                    "[gcal] không đọc được service account key — tắt đồng bộ Google Calendar"
+                );
                 GCal(None)
             }
         }
@@ -123,10 +128,18 @@ impl GCal {
     }
 
     /// Insert an event, returning its Google event id. `Ok(None)` if disabled.
-    pub async fn insert_event(&self, title: &str, start: &str, end: &str) -> AppResult<Option<String>> {
-        let Some(inner) = &self.0 else { return Ok(None) };
+    pub async fn insert_event(
+        &self,
+        title: &str,
+        start: &str,
+        end: &str,
+    ) -> AppResult<Option<String>> {
+        let Some(inner) = &self.0 else {
+            return Ok(None);
+        };
         let token = self.token(inner).await?;
-        let body = json!({ "summary": title, "start": {"dateTime": start}, "end": {"dateTime": end} });
+        let body =
+            json!({ "summary": title, "start": {"dateTime": start}, "end": {"dateTime": end} });
         let resp: serde_json::Value = inner
             .http
             .post(Self::events_url(inner))
@@ -141,10 +154,17 @@ impl GCal {
         Ok(resp["id"].as_str().map(|s| s.to_string()))
     }
 
-    pub async fn update_event(&self, event_id: &str, title: &str, start: &str, end: &str) -> AppResult<()> {
+    pub async fn update_event(
+        &self,
+        event_id: &str,
+        title: &str,
+        start: &str,
+        end: &str,
+    ) -> AppResult<()> {
         let Some(inner) = &self.0 else { return Ok(()) };
         let token = self.token(inner).await?;
-        let body = json!({ "summary": title, "start": {"dateTime": start}, "end": {"dateTime": end} });
+        let body =
+            json!({ "summary": title, "start": {"dateTime": start}, "end": {"dateTime": end} });
         inner
             .http
             .put(format!("{}/{event_id}", Self::events_url(inner)))

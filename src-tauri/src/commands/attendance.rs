@@ -30,7 +30,11 @@ fn map_homework(r: &Row) -> libsql::Result<Homework> {
 }
 
 /// A teacher may only touch sessions of their own classes (admin: any).
-async fn ensure_session_access(conn: &Connection, user: &AuthUser, session_id: &str) -> AppResult<()> {
+async fn ensure_session_access(
+    conn: &Connection,
+    user: &AuthUser,
+    session_id: &str,
+) -> AppResult<()> {
     if user.role != "teacher" {
         return Ok(());
     }
@@ -42,14 +46,20 @@ async fn ensure_session_access(conn: &Connection, user: &AuthUser, session_id: &
     )
     .await?;
     if owns.is_none() {
-        return Err(AppError::new("Bạn chỉ thao tác được trên buổi học của lớp mình."));
+        return Err(AppError::new(
+            "Bạn chỉ thao tác được trên buổi học của lớp mình.",
+        ));
     }
     Ok(())
 }
 
 // ---- Transport-agnostic logic ----
 
-pub async fn list_attendance_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Vec<Attendance>> {
+pub async fn list_attendance_impl(
+    token: &str,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Vec<Attendance>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::AttendanceView)?;
     if user.role == "teacher" {
@@ -74,7 +84,14 @@ pub async fn list_attendance_impl(token: &str, db: &Db, sessions: &Sessions) -> 
 }
 
 /// Append-only: a repeat mark inserts a new override row (attendance = legal proof).
-pub async fn mark_attendance_impl(token: &str, student_id: String, session_id: String, status: String, db: &Db, sessions: &Sessions) -> AppResult<Attendance> {
+pub async fn mark_attendance_impl(
+    token: &str,
+    student_id: String,
+    session_id: String,
+    status: String,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Attendance> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::AttendanceMark)?;
     ensure_session_access(&db.conn, &user, &session_id).await?;
@@ -100,14 +117,33 @@ pub async fn mark_attendance_impl(token: &str, student_id: String, session_id: S
     write_audit(
         &db.conn,
         &user.id,
-        if is_override { "attendance.override" } else { "attendance.mark" },
-        &format!("Điểm danh {status}{}", if is_override { " (ghi đè)" } else { "" }),
+        if is_override {
+            "attendance.override"
+        } else {
+            "attendance.mark"
+        },
+        &format!(
+            "Điểm danh {status}{}",
+            if is_override { " (ghi đè)" } else { "" }
+        ),
     )
     .await?;
-    Ok(Attendance { id, student_id, session_id, status, marked_by: user.id, marked_at: now, is_override })
+    Ok(Attendance {
+        id,
+        student_id,
+        session_id,
+        status,
+        marked_by: user.id,
+        marked_at: now,
+        is_override,
+    })
 }
 
-pub async fn list_homework_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Vec<Homework>> {
+pub async fn list_homework_impl(
+    token: &str,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Vec<Homework>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::HomeworkView)?;
     if user.role == "teacher" {
@@ -120,11 +156,24 @@ pub async fn list_homework_impl(token: &str, db: &Db, sessions: &Sessions) -> Ap
         )
         .await
     } else {
-        query_all(&db.conn, "SELECT id,student_id,session_id,status,recorded_by FROM homework", (), map_homework).await
+        query_all(
+            &db.conn,
+            "SELECT id,student_id,session_id,status,recorded_by FROM homework",
+            (),
+            map_homework,
+        )
+        .await
     }
 }
 
-pub async fn set_homework_impl(token: &str, student_id: String, session_id: String, status: String, db: &Db, sessions: &Sessions) -> AppResult<Homework> {
+pub async fn set_homework_impl(
+    token: &str,
+    student_id: String,
+    session_id: String,
+    status: String,
+    db: &Db,
+    sessions: &Sessions,
+) -> AppResult<Homework> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::HomeworkRecord)?;
     ensure_session_access(&db.conn, &user, &session_id).await?;
@@ -146,31 +195,59 @@ pub async fn set_homework_impl(token: &str, student_id: String, session_id: Stri
     )
     .await?
     .ok_or_else(|| AppError::new("Không lưu được bài tập."))?;
-    Ok(Homework { id, student_id, session_id, status, recorded_by })
+    Ok(Homework {
+        id,
+        student_id,
+        session_id,
+        status,
+        recorded_by,
+    })
 }
 
 // ---- Tauri command wrappers ----
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_attendance(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<Attendance>> {
+pub async fn list_attendance(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<Attendance>> {
     list_attendance_impl(&token, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn mark_attendance(token: String, student_id: String, session_id: String, status: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Attendance> {
+pub async fn mark_attendance(
+    token: String,
+    student_id: String,
+    session_id: String,
+    status: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Attendance> {
     mark_attendance_impl(&token, student_id, session_id, status, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn list_homework(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<Homework>> {
+pub async fn list_homework(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Vec<Homework>> {
     list_homework_impl(&token, &db, &sessions).await
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn set_homework(token: String, student_id: String, session_id: String, status: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Homework> {
+pub async fn set_homework(
+    token: String,
+    student_id: String,
+    session_id: String,
+    status: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<Homework> {
     set_homework_impl(&token, student_id, session_id, status, &db, &sessions).await
 }
