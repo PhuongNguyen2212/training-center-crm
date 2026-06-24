@@ -2,13 +2,44 @@
 
 [![CI](https://github.com/PhuongNguyen2212/training-center-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/PhuongNguyen2212/training-center-crm/actions/workflows/ci.yml)
 
-A desktop + web CRM for managing a training center / language school
-(Vietnamese-first UI). One shared cloud database serves the desktop app, the web
-app, and mobile browsers — built for many teacher/admin machines online.
+> A production-minded desktop + web CRM for a Vietnamese training center. **One
+> codebase** ships a Tauri **desktop app**, a headless **HTTP API**, and a React
+> **web / mobile UI**, all sharing one cloud database.
 
-Built per [CLAUDE.md](./CLAUDE.md): **Tauri 2 · Rust · React 18 · TypeScript ·
-Tailwind · Zustand · React Hook Form + Zod**, backed by **Turso Cloud (libSQL)**
-and **Cloudflare R2**.
+**Status:** MVP, active development · **CI:** green (3 jobs) · **Tests:** 59
+frontend + Rust unit & integration · **Live demo accounts** below.
+
+## At a glance
+
+| | |
+|---|---|
+| **What** | Role-based CRM: students, classes, attendance, finance, scheduling, KPI, staff |
+| **Who** | Admin, teacher, salesperson, finance — each with scoped permissions |
+| **Frontend** | React 18 · TypeScript · Tailwind · Zustand · React Hook Form + Zod |
+| **Backend** | Rust · Axum (HTTP API) · Tauri (desktop) — one shared command layer |
+| **Data** | Turso Cloud (libSQL/SQLite) · Cloudflare R2 (files) · Google Calendar |
+| **Quality** | GitHub Actions CI · ESLint + clippy · unit + integration tests · Dependabot |
+
+## Highlights for reviewers
+
+A compact tour of the engineering, mapped across the software lifecycle:
+
+- **Backend services & cohesive integration** — a single transport-agnostic
+  command layer (`*_impl` functions) serves *both* the desktop app and the web
+  API, so business rules, permissions, and audit logging live in exactly one
+  place. [→ Architecture](#architecture)
+- **QA & test automation** — frontend (Vitest) and backend (Rust) unit tests,
+  plus an **end-to-end test that boots the Axum server** over an in-memory
+  database and drives real HTTP auth paths. [→ Tests](#tests)
+- **CI/CD & release management** — a 3-job GitHub Actions pipeline (lint, test,
+  build, integration), a documented branch/PR flow, a CHANGELOG, and Dependabot.
+  [→ Engineering practices](#engineering-practices)
+- **Security by default** — bcrypt, brute-force lockout, server-side role
+  re-validation, parameterized SQL, and secrets kept out of git.
+  [→ Security](#security)
+
+> New here? [CLAUDE.md](./CLAUDE.md) is the full product + architecture spec;
+> [CONTRIBUTING.md](./CONTRIBUTING.md) is the dev workflow.
 
 ---
 
@@ -148,7 +179,7 @@ Copy [.env.example](./.env.example) to `.env` and fill in your values. Secrets a
 | Area | Description |
 |---|---|
 | **Dashboard** | Stats, upcoming sessions, new students, activity bell, audit log. |
-| **Students** | CRUD with the **CCCD rule** (12-digit national ID required when status = *confirmed*), soft delete, search/filter; salespeople see only their own. |
+| **Students** | CRUD with the **CCCD rule** (national ID required when status = *confirmed*; validated as 12 digits + a real province-code prefix), soft delete, search/filter; salespeople see only their own. |
 | **Classes** | Class management, assigned teacher, **enroll/unenroll** students, status, per-class session list. Teachers see/edit only their own classes. |
 | **Schedule** | Real **Google Calendar** integration via a shared service-account calendar so everyone can see sessions on their phones; create/edit/delete sessions. |
 | **Attendance** | Phone-calendar style; **append-only** — corrections create override records, history preserved. |
