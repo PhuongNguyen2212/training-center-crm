@@ -33,7 +33,7 @@ import {
   seedUsers,
 } from "@/data/seed";
 import { hashPassword, randomSalt } from "@/lib/crypto";
-import { backend, useBackend, type StudentInput } from "@/lib/backend";
+import { backend, hasRemoteBackend, type StudentInput } from "@/lib/backend";
 import { errorMessage } from "@/lib/error";
 import { useAuthStore } from "./auth-store";
 
@@ -215,7 +215,7 @@ export const useDataStore = create<DataState>()(
         })),
 
       hydrateFromBackend: async (token) => {
-        if (!useBackend()) return;
+        if (!hasRemoteBackend()) return;
         // Each list is role-gated server-side; swallow forbidden ones and keep
         // the seeded slice so name lookups still work for that role.
         const load = async <T>(fn: () => Promise<T>, apply: (v: T) => void) => {
@@ -266,7 +266,7 @@ export const useDataStore = create<DataState>()(
       },
 
       addStaff: async (data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             try {
@@ -313,7 +313,7 @@ export const useDataStore = create<DataState>()(
       },
 
       updateStaff: async (id, data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token && data.role) {
             await backend.updateUserRole(token, id, data.role);
@@ -335,7 +335,7 @@ export const useDataStore = create<DataState>()(
       },
 
       setStaffStatus: async (id, status, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) await backend.setUserStatus(token, id, status);
         }
@@ -351,7 +351,7 @@ export const useDataStore = create<DataState>()(
       },
 
       resetStaffPassword: async (id, newPassword, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             await backend.resetUserPassword(token, id, newPassword);
@@ -376,7 +376,7 @@ export const useDataStore = create<DataState>()(
       },
 
       changeOwnPassword: async (id, newPassword, currentPassword) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             // Backend verifies the current password server-side.
@@ -401,7 +401,7 @@ export const useDataStore = create<DataState>()(
       },
 
       addStudent: async (data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const created = (await backend.createStudent(
@@ -428,7 +428,7 @@ export const useDataStore = create<DataState>()(
       },
 
       updateStudent: async (id, data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           const existing = get().students.find((s) => s.id === id);
           if (token && existing) {
@@ -469,7 +469,7 @@ export const useDataStore = create<DataState>()(
       },
 
       softDeleteStudent: async (id, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             await backend.softDeleteStudent(token, id);
@@ -495,7 +495,7 @@ export const useDataStore = create<DataState>()(
       },
 
       markAttendance: async (studentId, sessionId, status, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const record = (await backend.markAttendance(
@@ -531,7 +531,7 @@ export const useDataStore = create<DataState>()(
       },
 
       setHomework: async (studentId, sessionId, status, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const hw = (await backend.setHomework(
@@ -569,7 +569,7 @@ export const useDataStore = create<DataState>()(
       },
 
       addPaymentDoc: async (data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const doc = (await backend.createPaymentDoc(token, {
@@ -611,7 +611,7 @@ export const useDataStore = create<DataState>()(
       },
 
       softDeletePaymentDoc: async (id, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             await backend.softDeletePaymentDoc(token, id);
@@ -636,7 +636,7 @@ export const useDataStore = create<DataState>()(
       },
 
       viewPaymentDoc: async (id) => {
-        if (!useBackend()) {
+        if (!hasRemoteBackend()) {
           throw new Error(
             "Xem nội dung tệp chỉ khả dụng trong ứng dụng máy tính.",
           );
@@ -654,7 +654,7 @@ export const useDataStore = create<DataState>()(
       },
 
       addClass: async (data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const cls = (await backend.createClass(token, {
@@ -681,7 +681,7 @@ export const useDataStore = create<DataState>()(
       },
 
       updateClass: async (id, data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           const existing = get().classes.find((c) => c.id === id);
           if (token && existing) {
@@ -707,7 +707,7 @@ export const useDataStore = create<DataState>()(
       },
 
       enrollStudent: async (classId, studentId, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             await backend.enrollStudent(token, classId, studentId);
@@ -722,7 +722,7 @@ export const useDataStore = create<DataState>()(
               : c,
           ),
         }));
-        if (!useBackend()) {
+        if (!hasRemoteBackend()) {
           const st = get().students.find((x) => x.id === studentId);
           get().addAudit(
             actorId,
@@ -733,7 +733,7 @@ export const useDataStore = create<DataState>()(
       },
 
       unenrollStudent: async (classId, studentId, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) await backend.unenrollStudent(token, classId, studentId);
         }
@@ -749,7 +749,7 @@ export const useDataStore = create<DataState>()(
               : c,
           ),
         }));
-        if (!useBackend()) {
+        if (!hasRemoteBackend()) {
           const st = get().students.find((x) => x.id === studentId);
           get().addAudit(
             actorId,
@@ -760,7 +760,7 @@ export const useDataStore = create<DataState>()(
       },
 
       setClassStatus: async (id, status, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) await backend.setClassStatus(token, id, status);
         }
@@ -770,7 +770,7 @@ export const useDataStore = create<DataState>()(
             c.id === id ? { ...c, status, updatedAt: nowIso() } : c,
           ),
         }));
-        if (!useBackend()) {
+        if (!hasRemoteBackend()) {
           get().addAudit(
             actorId,
             "class.status_change",
@@ -781,7 +781,7 @@ export const useDataStore = create<DataState>()(
 
       deleteClass: async (id, actorId) => {
         const cls = get().classes.find((c) => c.id === id);
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) await backend.deleteClass(token, id);
         }
@@ -792,13 +792,13 @@ export const useDataStore = create<DataState>()(
             se.classId === id ? { ...se, classId: null } : se,
           ),
         }));
-        if (!useBackend()) {
+        if (!hasRemoteBackend()) {
           get().addAudit(actorId, "class.delete", `Xóa lớp ${cls?.name ?? id}`);
         }
       },
 
       addSession: async (data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const session = (await backend.createSession(token, {
@@ -823,7 +823,7 @@ export const useDataStore = create<DataState>()(
       },
 
       updateSession: async (id, data, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           const existing = get().sessions.find((se) => se.id === id);
           if (token && existing) {
@@ -851,13 +851,13 @@ export const useDataStore = create<DataState>()(
       },
 
       deleteSession: async (id, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) await backend.deleteSession(token, id);
         }
         const prev = get().sessions.find((se) => se.id === id);
         set((s) => ({ sessions: s.sessions.filter((se) => se.id !== id) }));
-        if (!useBackend()) {
+        if (!hasRemoteBackend()) {
           get().addAudit(
             actorId,
             "schedule.delete",
@@ -867,7 +867,7 @@ export const useDataStore = create<DataState>()(
       },
 
       upsertSessionsFromGoogle: async (incoming, actorId) => {
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
             const all = (await backend.upsertSessionsFromGoogle(

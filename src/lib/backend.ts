@@ -1,7 +1,7 @@
 // Typed client for the backend. ONE set of methods, TWO transports:
 //   - Desktop (Tauri)  → invoke() into the embedded Rust backend.
 //   - Web (browser)    → fetch() the HTTP API server (set VITE_API_URL).
-// `useBackend()` is true when either transport is available; otherwise the app
+// `hasRemoteBackend()` is true when either transport is available; otherwise the app
 // falls back to the localStorage prototype store (pure web demo).
 
 import { invoke } from "@tauri-apps/api/core";
@@ -29,7 +29,7 @@ export const isTauri = (): boolean =>
 const apiUrl = (): string => (import.meta.env.VITE_API_URL as string) || "";
 
 /** True when a real backend is reachable (desktop Tauri, or web + API server). */
-export const useBackend = (): boolean => isTauri() || Boolean(apiUrl());
+export const hasRemoteBackend = (): boolean => isTauri() || Boolean(apiUrl());
 
 interface HttpReq {
   method: string;

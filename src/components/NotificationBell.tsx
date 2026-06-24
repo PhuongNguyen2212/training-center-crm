@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
-import { useBackend } from "@/lib/backend";
+import { hasRemoteBackend } from "@/lib/backend";
 import { formatDateTime } from "@/lib/labels";
 
 // Any class-related activity (enroll/unenroll/create/update/status/delete) is
@@ -27,7 +27,7 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   const items = useMemo(() => {
-    const base = useBackend() ? notifications : auditLogs;
+    const base = hasRemoteBackend() ? notifications : auditLogs;
     return [...base]
       .filter((l) => isClassAction(l.action))
       .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))

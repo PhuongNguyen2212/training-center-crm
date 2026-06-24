@@ -13,7 +13,7 @@ import {
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
 import { errorMessage } from "@/lib/error";
-import { useBackend } from "@/lib/backend";
+import { hasRemoteBackend } from "@/lib/backend";
 import { can } from "@/lib/permissions";
 import { formatTime } from "@/lib/labels";
 import { EmptyState, NoAccess, PageHeader } from "@/components/ui";
@@ -207,12 +207,12 @@ export default function SchedulePage() {
           <div className="flex gap-2">
             {/* Desktop pushes to Google automatically via the backend service
                 account; the browser-only connect/sync controls are web-demo only. */}
-            {!useBackend() && googleConfigured && !connected && (
+            {!hasRemoteBackend() && googleConfigured && !connected && (
               <button className="btn-outline" onClick={handleConnect} disabled={syncing}>
                 <Plug size={16} /> Kết nối Google
               </button>
             )}
-            {!useBackend() && (
+            {!hasRemoteBackend() && (
               <button className="btn-outline" onClick={handleSync} disabled={syncing}>
                 <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
                 {syncing ? "Đang đồng bộ..." : "Đồng bộ"}
@@ -235,7 +235,7 @@ export default function SchedulePage() {
       />
 
       {/* Connection banner */}
-      {useBackend() ? (
+      {hasRemoteBackend() ? (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           <Cloud size={16} />
           Buổi học tự động đồng bộ lên Google Calendar chung — giáo viên/admin xem

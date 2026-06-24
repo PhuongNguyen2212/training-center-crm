@@ -3,7 +3,7 @@ import { Modal } from "./Modal";
 import { useAuthStore } from "@/store/auth-store";
 import { useDataStore } from "@/store/data-store";
 import { checkPasswordStrength, verifyPassword } from "@/lib/crypto";
-import { useBackend } from "@/lib/backend";
+import { hasRemoteBackend } from "@/lib/backend";
 import { errorMessage } from "@/lib/error";
 
 // Self-service password change. Requires the current password (verified against
@@ -26,7 +26,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
     // In the browser we verify the current password locally; on desktop the
     // backend verifies it server-side (and throws if wrong).
-    if (!useBackend()) {
+    if (!hasRemoteBackend()) {
       const fresh = users.find((u) => u.id === me.id) ?? me;
       const ok =
         fresh.passwordHash && fresh.salt

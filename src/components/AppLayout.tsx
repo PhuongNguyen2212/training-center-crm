@@ -9,7 +9,7 @@ import { ROLE_LABELS } from "@/lib/labels";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { NotificationBell } from "@/components/NotificationBell";
-import { backend, useBackend } from "@/lib/backend";
+import { backend, hasRemoteBackend } from "@/lib/backend";
 
 export default function AppLayout() {
   const user = useAuthStore((s) => s.currentUser)!;
@@ -33,7 +33,7 @@ export default function AppLayout() {
   // revalidated on startup. If the token is stale, force re-login; otherwise
   // refresh data from SQLite.
   useEffect(() => {
-    if (!useBackend()) return;
+    if (!hasRemoteBackend()) return;
     const token = useAuthStore.getState().token;
     if (!token) {
       handleLogout();

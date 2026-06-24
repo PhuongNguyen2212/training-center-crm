@@ -7,7 +7,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@/types";
 import { verifyPassword } from "@/lib/crypto";
-import { backend, useBackend } from "@/lib/backend";
+import { backend, hasRemoteBackend } from "@/lib/backend";
 import { errorMessage } from "@/lib/error";
 import { useDataStore } from "./data-store";
 
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email, password) => {
         // ---- Desktop: real backend ----
-        if (useBackend()) {
+        if (hasRemoteBackend()) {
           try {
             const { token, user } = await backend.login(email, password);
             set({ currentUser: user, token, lastActivity: Date.now() });
@@ -125,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         const { token } = get();
-        if (useBackend() && token) backend.logout(token).catch(() => {});
+        if (hasRemoteBackend() && token) backend.logout(token).catch(() => {});
         set({ currentUser: null, token: null });
       },
 

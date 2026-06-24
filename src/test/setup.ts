@@ -1,5 +1,5 @@
 // Tests exercise the localStorage prototype path, so the HTTP API server must
-// be "off" regardless of any VITE_API_URL in .env → useBackend() stays false.
+// be "off" regardless of any VITE_API_URL in .env → hasRemoteBackend() stays false.
 import { vi } from "vitest";
 vi.stubEnv("VITE_API_URL", "");
 
