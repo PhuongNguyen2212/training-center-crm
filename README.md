@@ -65,9 +65,53 @@ npm run tauri:build  # installer in src-tauri/target/release
 
 ### Tests
 
+Frontend (Vitest) — type-check, lint, and unit tests:
+
 ```bash
-npm test             # vitest run
+npx tsc --noEmit
+npm run lint
+npm test
 ```
+
+Backend (in `src-tauri/`) — formatting, lints, and the pure unit tests (no
+extra toolchain needed):
+
+```bash
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
+
+The DB-backed `*_impl` tests and the Axum server integration test run against an
+in-memory libSQL database, which needs the local libSQL backend (clang/libclang)
+and so runs in CI. To run them locally with clang installed:
+
+```bash
+cargo test --no-default-features --features db-tests
+```
+
+---
+
+## Engineering practices
+
+This project is built with full-SDLC hygiene in mind:
+
+- **CI / DevOps** — every push and PR runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+  frontend (type-check, lint, test, build), backend (rustfmt, clippy `-D
+  warnings`, test, release server build), and an integration job (DB + HTTP
+  server tests). Runs are de-duplicated per ref; Dependabot keeps deps current.
+- **Test automation** — Vitest on the frontend and Rust unit + integration tests
+  on the backend, focused on business rules and security-critical paths (role
+  matrix, login lockout, CCCD validation, soft-delete, append-only attendance)
+  rather than vanity coverage. The server is integration-tested end-to-end over
+  HTTP against an in-memory database.
+- **Audit logging** — login, student status changes, and payment-document
+  changes are recorded with user id + timestamp.
+- **Security hardening** — bcrypt auth, brute-force lockout, server-side role
+  re-validation, parameterized SQL, env-driven CORS, and secrets kept out of
+  git (see [docs/security.md](docs/security.md)).
+- **Release management** — [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog) and a
+  documented branch/PR/CI flow in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
