@@ -26,6 +26,24 @@ pub async fn open(url: &str, token: &str) -> AppResult<Db> {
     Ok(Db { conn, _db })
 }
 
+/// Open an **in-memory** libSQL database with the schema applied — for tests
+/// only. Requires the `db-tests` feature (libSQL's local `core` backend), so it
+/// is excluded from the default pure-Rust/remote build.
+#[cfg(feature = "db-tests")]
+pub async fn open_memory() -> AppResult<Db> {
+    let _db = Builder::new_local(":memory:")
+        .build()
+        .await
+        .map_err(|e| AppError::new(format!("Không mở được DB in-memory: {e}")))?;
+    let conn = _db
+        .connect()
+        .map_err(|e| AppError::new(format!("Không mở được kết nối: {e}")))?;
+    conn.execute_batch(include_str!("../migrations/0001_init.sql"))
+        .await
+        .map_err(|e| AppError::new(format!("Áp dụng schema thất bại: {e}")))?;
+    Ok(Db { conn, _db })
+}
+
 /// Query and map the first row, or `None` if there are no rows.
 pub async fn query_opt<T>(
     conn: &Connection,

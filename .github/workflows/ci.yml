@@ -89,3 +89,35 @@ jobs:
 
       - name: Build headless server (release)
         run: cargo build --bin server --no-default-features --release
+
+  integration:
+    name: Integration (in-memory DB)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    env:
+      # libSQL's call chain is stack-heavy; give test threads a large stack.
+      RUST_MIN_STACK: "33554432"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: integration
+
+      # The `db-tests` feature pulls libSQL's local `core` backend, whose build
+      # uses bindgen (libclang) + a C compiler. No Tauri/webkit needed here.
+      - name: Install build tools (clang for libsql core)
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev build-essential
+
+      # Runs the pure unit tests plus the DB-backed *_impl and Axum server
+      # integration tests (tests/backend_it.rs, tests/server_it.rs) against an
+      # in-memory libSQL database. `--no-default-features` keeps Tauri out.
+      - name: DB + server integration tests
+        run: cargo test --no-default-features --features db-tests

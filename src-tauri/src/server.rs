@@ -378,35 +378,13 @@ async fn users_password(
     out(reset_user_password_impl(&bearer(&headers), id, b.password, &st.db, &st.sessions).await)
 }
 
-/// Build app state (connect Turso, seed) and run the HTTP server.
-pub async fn serve() {
-    dotenvy::dotenv().ok();
-    let url = crate::secret!("TURSO_DATABASE_URL").expect("thiếu TURSO_DATABASE_URL");
-    let token = crate::secret!("TURSO_AUTH_TOKEN").expect("thiếu TURSO_AUTH_TOKEN");
-
-    let db = crate::db::open(&url, &token)
-        .await
-        .expect("kết nối Turso thất bại");
-    crate::seed::seed_if_empty(&db.conn)
-        .await
-        .expect("seed thất bại");
-
-    let r2 = crate::storage::R2::from_env().expect("khởi tạo R2 thất bại");
-    let gcal = crate::gcal::GCal::from_env();
-
-    let state = AppState {
-        db: Arc::new(db),
-        sessions: Arc::new(Sessions(Mutex::new(HashMap::new()))),
-        guard: Arc::new(LoginGuard(Mutex::new(HashMap::new()))),
-        r2: Arc::new(r2),
-        gcal: Arc::new(gcal),
-    };
-
-    // CORS: in production set ALLOWED_ORIGINS to a comma-separated allow-list of
-    // exact web origins (e.g. "https://crm-trungtam.vercel.app"). When unset we
-    // fall back to permissive `Any` for local dev. Auth is via a Bearer token in
-    // the Authorization header (not cookies), so we never enable allow_credentials.
-    let cors = match std::env::var("ALLOWED_ORIGINS")
+/// Build the CORS layer. In production set ALLOWED_ORIGINS to a comma-separated
+/// allow-list of exact web origins (e.g. "https://crm-trungtam.vercel.app").
+/// When unset we fall back to permissive `Any` for local dev. Auth is via a
+/// Bearer token in the Authorization header (not cookies), so we never enable
+/// allow_credentials.
+fn cors_layer() -> CorsLayer {
+    match std::env::var("ALLOWED_ORIGINS")
         .ok()
         .filter(|s| !s.trim().is_empty())
     {
@@ -431,9 +409,14 @@ pub async fn serve() {
                 .allow_methods(Any)
                 .allow_headers(Any)
         }
-    };
+    }
+}
 
-    let app = Router::new()
+/// Assemble the full Axum router (routes + CORS) from an [`AppState`]. Kept
+/// separate from [`serve`] so tests can build the same router over an in-memory
+/// database without binding a socket.
+fn build_router(state: AppState) -> Router {
+    Router::new()
         .route("/api/health", get(health))
         .route("/api/login", post(login))
         .route("/api/me", get(me))
@@ -470,8 +453,59 @@ pub async fn serve() {
         .route("/api/users/:id/status", post(users_status))
         .route("/api/users/:id/role", post(users_role))
         .route("/api/users/:id/password", post(users_password))
-        .layer(cors)
-        .with_state(state);
+        .layer(cors_layer())
+        .with_state(state)
+}
+
+/// Test-only: build the router over a caller-provided (in-memory) database.
+/// R2/GCal are stubbed since the tested endpoints don't touch them. Gated on
+/// `db-tests` so it never ships in production builds.
+#[cfg(feature = "db-tests")]
+pub async fn test_router(db: Db) -> Router {
+    // The payment endpoints aren't exercised in tests; build a non-connecting R2
+    // stub from fixed values so AppState can be constructed.
+    std::env::set_var("R2_ENDPOINT", "http://localhost");
+    std::env::set_var("R2_BUCKET", "test");
+    std::env::set_var("R2_ACCESS_KEY_ID", "test");
+    std::env::set_var("R2_SECRET_ACCESS_KEY", "test");
+    let r2 = crate::storage::R2::from_env().expect("stub R2");
+    let gcal = crate::gcal::GCal::from_env(); // no env -> disabled
+
+    let state = AppState {
+        db: Arc::new(db),
+        sessions: Arc::new(Sessions(Mutex::new(HashMap::new()))),
+        guard: Arc::new(LoginGuard(Mutex::new(HashMap::new()))),
+        r2: Arc::new(r2),
+        gcal: Arc::new(gcal),
+    };
+    build_router(state)
+}
+
+/// Build app state (connect Turso, seed) and run the HTTP server.
+pub async fn serve() {
+    dotenvy::dotenv().ok();
+    let url = crate::secret!("TURSO_DATABASE_URL").expect("thiếu TURSO_DATABASE_URL");
+    let token = crate::secret!("TURSO_AUTH_TOKEN").expect("thiếu TURSO_AUTH_TOKEN");
+
+    let db = crate::db::open(&url, &token)
+        .await
+        .expect("kết nối Turso thất bại");
+    crate::seed::seed_if_empty(&db.conn)
+        .await
+        .expect("seed thất bại");
+
+    let r2 = crate::storage::R2::from_env().expect("khởi tạo R2 thất bại");
+    let gcal = crate::gcal::GCal::from_env();
+
+    let state = AppState {
+        db: Arc::new(db),
+        sessions: Arc::new(Sessions(Mutex::new(HashMap::new()))),
+        guard: Arc::new(LoginGuard(Mutex::new(HashMap::new()))),
+        r2: Arc::new(r2),
+        gcal: Arc::new(gcal),
+    };
+
+    let app = build_router(state);
 
     let port: u16 = std::env::var("PORT")
         .ok()

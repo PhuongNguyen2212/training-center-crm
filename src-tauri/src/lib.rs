@@ -20,6 +20,32 @@ mod util;
 
 pub use server::serve;
 
+/// Test-only public surface for DB-backed integration tests (see `tests/`).
+/// Gated on `db-tests` because it relies on the in-memory libSQL backend, which
+/// needs the C/`core` build (CI only). Not compiled into production binaries.
+#[cfg(feature = "db-tests")]
+pub mod testkit {
+    pub use crate::auth::{current_user, AuthUser, LoginGuard, Sessions};
+    pub use crate::commands::attendance::{list_attendance_impl, mark_attendance_impl};
+    pub use crate::commands::auth::login_impl;
+    pub use crate::commands::students::{list_students_impl, soft_delete_student_impl};
+    pub use crate::db::{open_memory, Db};
+    pub use crate::error::{AppError, AppResult};
+    pub use crate::models::LoginResponse;
+    pub use crate::seed::seed_if_empty;
+    pub use crate::server::test_router;
+
+    /// An empty in-memory session table (token -> user_id).
+    pub fn empty_sessions() -> Sessions {
+        Sessions(parking_lot::Mutex::new(std::collections::HashMap::new()))
+    }
+
+    /// An empty brute-force login guard.
+    pub fn empty_guard() -> LoginGuard {
+        LoginGuard(parking_lot::Mutex::new(std::collections::HashMap::new()))
+    }
+}
+
 // ---- Desktop app (Tauri). Compiled only with the `desktop` feature so the
 // headless `server` binary can build without Tauri/webkit. ----
 

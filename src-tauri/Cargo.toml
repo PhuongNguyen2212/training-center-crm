@@ -50,3 +50,8 @@ default = ["desktop"]
 # Desktop app (Tauri GUI). Disable for the headless HTTP server build.
 desktop = ["dep:tauri"]
 custom-protocol = ["tauri?/custom-protocol"]
+# Enables an in-memory libSQL database for DB-backed unit/integration tests
+# (`cargo test --features db-tests`). Pulls libsql's `core` (C) backend, which
+# needs clang/libclang — so this runs in CI (Linux), not on the LLVM-less dev
+# box. The default build stays pure-Rust/remote-only.
+db-tests = ["libsql/core"]
