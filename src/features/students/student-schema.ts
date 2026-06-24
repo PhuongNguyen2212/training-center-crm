@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { isValidCccd } from "../../lib/cccd";
 
 // Validation mirrors the CLAUDE.md business rule:
-// when enrollment_status === "confirmed", cccd_number is REQUIRED and must
-// match the 12-digit Vietnamese national ID format.
+// when enrollment_status === "confirmed", cccd_number is REQUIRED and must be a
+// valid Vietnamese national ID (12 digits + a real province-code prefix).
 export const studentSchema = z
   .object({
     name: z.string().trim().min(2, "Vui lòng nhập họ và tên"),
@@ -26,12 +27,12 @@ export const studentSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.enrollmentStatus === "confirmed") {
-      if (!data.cccdNumber || !/^[0-9]{12}$/.test(data.cccdNumber)) {
+      if (!data.cccdNumber || !isValidCccd(data.cccdNumber)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["cccdNumber"],
           message:
-            "Học viên đã xác nhận phải có số CCCD gồm đúng 12 chữ số.",
+            "Học viên đã xác nhận phải có số CCCD gồm 12 chữ số và mã tỉnh hợp lệ.",
         });
       }
     }

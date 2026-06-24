@@ -221,6 +221,52 @@ pub async fn soft_delete_student_impl(
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::validate;
+    use crate::models::StudentInput;
+
+    fn input(status: &str, cccd: Option<&str>) -> StudentInput {
+        StudentInput {
+            name: "Nguyễn Văn A".into(),
+            age: Some(25),
+            phone: None,
+            job_title: None,
+            goal: None,
+            enrollment_status: status.into(),
+            cccd_number: cccd.map(String::from),
+        }
+    }
+
+    #[test]
+    fn confirmed_requires_valid_cccd() {
+        // Happy path: confirmed with a valid 12-digit + province-code CCCD.
+        assert!(validate(&input("confirmed", Some("012345678901"))).is_ok());
+    }
+
+    #[test]
+    fn confirmed_rejects_missing_or_malformed_cccd() {
+        assert!(validate(&input("confirmed", None)).is_err()); // missing
+        assert!(validate(&input("confirmed", Some("01234567890"))).is_err()); // 11 digits
+        assert!(validate(&input("confirmed", Some("01234567890x"))).is_err()); // letter
+        assert!(validate(&input("confirmed", Some("999999999999"))).is_err()); // bad province
+    }
+
+    #[test]
+    fn non_confirmed_does_not_require_cccd() {
+        // The CCCD rule only applies once a student is confirmed.
+        assert!(validate(&input("prospect", None)).is_ok());
+        assert!(validate(&input("dropped", None)).is_ok());
+    }
+
+    #[test]
+    fn rejects_too_short_name() {
+        let mut i = input("prospect", None);
+        i.name = "A".into();
+        assert!(validate(&i).is_err());
+    }
+}
+
 // ---- Tauri command wrappers ----
 
 #[cfg(feature = "desktop")]
