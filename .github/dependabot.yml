@@ -7,6 +7,14 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
+      # ESLint packages release in lockstep (same major); bump them together so
+      # a lone @eslint/js major never conflicts with eslint (ERESOLVE).
+      eslint:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "@typescript-eslint/*"
+          - "typescript-eslint"
       npm-minor-patch:
         update-types:
           - "minor"
