@@ -4,9 +4,6 @@ import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
 import { StatCard } from "@/components/ui";
 import { formatVND } from "@/lib/labels";
-import { seedUsers } from "@/data/seed";
-
-const salespeople = seedUsers.filter((u) => u.role === "salesperson");
 
 function statsFor(
   salespersonId: string,
@@ -36,9 +33,16 @@ export default function SalesReport() {
   const user = useAuthStore((s) => s.currentUser)!;
   const students = useDataStore((s) => s.students);
   const paymentDocs = useDataStore((s) => s.paymentDocs);
+  const users = useDataStore((s) => s.users);
 
-  // Salesperson sees their own; admin sees every salesperson.
-  const targets = user.role === "admin" ? salespeople : salespeople.filter((u) => u.id === user.id);
+  // Salesperson sees their own; admin sees every (real) salesperson from the DB.
+  const targets = useMemo(
+    () =>
+      user.role === "admin"
+        ? users.filter((u) => u.role === "salesperson")
+        : [user],
+    [user, users],
+  );
 
   const rows = useMemo(
     () =>

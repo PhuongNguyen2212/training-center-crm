@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
 import { can } from "@/lib/permissions";
@@ -8,6 +8,8 @@ import {
   ENROLLMENT_LABELS,
   formatDate,
 } from "@/lib/labels";
+import { exportCsv, dateStamp, type CsvColumn } from "@/lib/csv";
+import { errorMessage } from "@/lib/error";
 import { Badge, EmptyState, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import type { EnrollmentStatus, Student } from "@/types";
@@ -53,6 +55,23 @@ export default function StudentsPage() {
 
   if (!canView) return <NoAccess />;
 
+  const exportStudents = () => {
+    const columns: CsvColumn<Student>[] = [
+      { header: "Họ và tên", value: (s) => s.name },
+      { header: "Tuổi", value: (s) => s.age },
+      { header: "Điện thoại", value: (s) => s.phone },
+      { header: "Vị trí công việc", value: (s) => s.jobTitle },
+      { header: "Nguyện vọng", value: (s) => s.goal },
+      {
+        header: "Trạng thái",
+        value: (s) => ENROLLMENT_LABELS[s.enrollmentStatus],
+      },
+      { header: "CCCD", value: (s) => s.cccdNumber },
+      { header: "Ngày tạo", value: (s) => formatDate(s.createdAt) },
+    ];
+    exportCsv(`hoc-vien-${dateStamp()}.csv`, students, columns);
+  };
+
   const openCreate = () => {
     setEditing(null);
     setSubmitError("");
@@ -86,7 +105,7 @@ export default function StudentsPage() {
       }
       setFormOpen(false);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      setSubmitError(errorMessage(e));
     }
   };
 
@@ -96,11 +115,21 @@ export default function StudentsPage() {
         title="Quản lý học viên"
         subtitle="Thông tin học viên, trạng thái ghi danh và CCCD"
         actions={
-          canEdit ? (
-            <button className="btn-primary" onClick={openCreate}>
-              <Plus size={16} /> Thêm học viên
+          <div className="flex gap-2">
+            <button
+              className="btn-outline"
+              onClick={exportStudents}
+              disabled={students.length === 0}
+              title="Xuất danh sách đang hiển thị ra CSV"
+            >
+              <Download size={16} /> Xuất CSV
             </button>
-          ) : undefined
+            {canEdit && (
+              <button className="btn-primary" onClick={openCreate}>
+                <Plus size={16} /> Thêm học viên
+              </button>
+            )}
+          </div>
         }
       />
 

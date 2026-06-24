@@ -8,8 +8,8 @@ This file gives Claude persistent context for every session. Read it fully befor
 
 - **Product**: A desktop CRM for managing a training center / language or skill school
 - **Users**: Admins, Teachers, Course Salespeople (each with different access levels)
-- **Runtime**: File-based desktop app — no web server; mostly offline except Google Calendar integration for class scheduling
-- **Data storage**: Single local SQLite file (portable, backupable)
+- **Runtime**: Desktop app (Tauri) distributed to many teacher/admin machines that share one central database — **online-only** (requires internet)
+- **Data storage**: **Turso Cloud (hosted libSQL)** over HTTP, shared by all machines. Payment files on **Cloudflare R2**. (Superseded the original single-local-SQLite design — see docs/turso-migration.md and the [[db-architecture-direction]] memory.)
 - **Stage**: MVP in active development
 - **Language**: Vietnamese-first UI; field names and labels in Vietnamese where noted
 
@@ -21,11 +21,11 @@ This file gives Claude persistent context for every session. Read it fully befor
 |--------------|-----------------------------------------|
 | Shell        | Tauri (Rust backend + web frontend)     |
 | Frontend     | React 18 + TypeScript + Tailwind CSS    |
-| Database     | SQLite (single `.db` file)              |
-| ORM          | Prisma (SQLite provider)                |
+| Database     | Turso Cloud (hosted libSQL/SQLite) via `libsql` remote, async |
+| ORM          | None in Rust — hand-written SQL via `libsql` (Prisma schema kept as reference) |
 | State Mgmt   | Zustand                                 |
 | Forms        | React Hook Form + Zod validation        |
-| File Storage | Local filesystem via Tauri `fs` API     |
+| File Storage | Cloudflare R2 (S3-compatible) via `rust-s3` |
 | Auth         | Local bcrypt password (no JWT/tokens)   |
 | Calendar     | Google Calendar API v3 (OAuth 2.0)      |
 | Packaging    | Tauri bundler → `.exe` / `.dmg` / `.deb`|

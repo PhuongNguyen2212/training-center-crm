@@ -3,7 +3,8 @@ import { Modal } from "./Modal";
 import { useAuthStore } from "@/store/auth-store";
 import { useDataStore } from "@/store/data-store";
 import { checkPasswordStrength, verifyPassword } from "@/lib/crypto";
-import { isTauri } from "@/lib/backend";
+import { useBackend } from "@/lib/backend";
+import { errorMessage } from "@/lib/error";
 
 // Self-service password change. Requires the current password (verified against
 // the stored hash or legacy demo plaintext) before setting a new hashed one.
@@ -25,7 +26,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
     // In the browser we verify the current password locally; on desktop the
     // backend verifies it server-side (and throws if wrong).
-    if (!isTauri()) {
+    if (!useBackend()) {
       const fresh = users.find((u) => u.id === me.id) ?? me;
       const ok =
         fresh.passwordHash && fresh.salt
@@ -49,7 +50,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       await changeOwnPassword(me.id, next, current);
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

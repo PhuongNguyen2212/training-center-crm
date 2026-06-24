@@ -19,8 +19,8 @@ impl std::fmt::Display for AppError {
     }
 }
 
-impl From<rusqlite::Error> for AppError {
-    fn from(e: rusqlite::Error) -> Self {
+impl From<libsql::Error> for AppError {
+    fn from(e: libsql::Error) -> Self {
         AppError::new(format!("Lỗi cơ sở dữ liệu: {e}"))
     }
 }

@@ -1,14 +1,15 @@
-use crate::auth::{current_user, require_role, write_audit, Sessions};
-use crate::db::Db;
+use crate::auth::{current_user, require_capability, write_audit, Capability, Sessions};
+use crate::db::{query_all, query_opt, Db};
 use crate::error::{AppError, AppResult};
 use crate::models::{Student, StudentInput};
 use crate::util::{is_valid_cccd, new_id, now_iso};
-use rusqlite::{params, Row};
+use libsql::{Connection, Row};
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 const COLS: &str = "id,name,age,phone,job_title,goal,enrollment_status,cccd_number,salesperson_id,created_at,updated_at,deleted_at";
 
-fn map_student(r: &Row) -> rusqlite::Result<Student> {
+fn map_student(r: &Row) -> libsql::Result<Student> {
     Ok(Student {
         id: r.get(0)?,
         name: r.get(1)?,
@@ -23,6 +24,17 @@ fn map_student(r: &Row) -> rusqlite::Result<Student> {
         updated_at: r.get(10)?,
         deleted_at: r.get(11)?,
     })
+}
+
+async fn one_student(conn: &Connection, id: &str) -> AppResult<Student> {
+    query_opt(
+        conn,
+        &format!("SELECT {COLS} FROM students WHERE id = ?1"),
+        libsql::params![id.to_string()],
+        map_student,
+    )
+    .await?
+    .ok_or_else(|| AppError::new("Không tìm thấy học viên."))
 }
 
 /// Server-side enforcement of the CCCD business rule.
@@ -43,137 +55,163 @@ fn validate(input: &StudentInput) -> AppResult<()> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn list_students(
-    token: String,
-    db: State<Db>,
-    sessions: State<Sessions>,
+// ---- Transport-agnostic logic (shared by Tauri commands + HTTP API) ----
+
+pub async fn list_students_impl(
+    token: &str,
+    db: &Db,
+    sessions: &Sessions,
 ) -> AppResult<Vec<Student>> {
-    let user = current_user(&db, &sessions, &token)?;
-    require_role(
-        &user,
-        &["admin", "teacher", "salesperson", "finance_staff"],
-    )?;
-    let conn = db.0.lock();
-
-    // Salesperson sees only their own referrals ("own" scoping, server-side).
-    let (sql, scoped) = if user.role == "salesperson" {
-        (
-            format!("SELECT {COLS} FROM students WHERE deleted_at IS NULL AND salesperson_id = ?1 ORDER BY created_at DESC"),
-            true,
+    let user = current_user(db, sessions, token).await?;
+    require_capability(&user, Capability::StudentView)?;
+    if user.role == "salesperson" {
+        query_all(
+            &db.conn,
+            &format!("SELECT {COLS} FROM students WHERE deleted_at IS NULL AND salesperson_id = ?1 ORDER BY created_at DESC"),
+            libsql::params![user.id.clone()],
+            map_student,
         )
+        .await
     } else {
-        (
-            format!("SELECT {COLS} FROM students WHERE deleted_at IS NULL ORDER BY created_at DESC"),
-            false,
+        query_all(
+            &db.conn,
+            &format!("SELECT {COLS} FROM students WHERE deleted_at IS NULL ORDER BY created_at DESC"),
+            (),
+            map_student,
         )
-    };
-
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = if scoped {
-        stmt.query_map([&user.id], map_student)?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    } else {
-        stmt.query_map([], map_student)?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    };
-    Ok(rows)
+        .await
+    }
 }
 
-#[tauri::command]
-pub fn create_student(
-    token: String,
+pub async fn create_student_impl(
+    token: &str,
     input: StudentInput,
-    db: State<Db>,
-    sessions: State<Sessions>,
+    db: &Db,
+    sessions: &Sessions,
 ) -> AppResult<Student> {
-    let user = current_user(&db, &sessions, &token)?;
-    require_role(&user, &["admin", "salesperson"])?;
+    let user = current_user(db, sessions, token).await?;
+    require_capability(&user, Capability::StudentEdit)?;
     validate(&input)?;
 
     let id = new_id();
     let now = now_iso();
-    // Only attribute the referral when the creator is a salesperson.
     let salesperson_id = if user.role == "salesperson" {
         Some(user.id.clone())
     } else {
         None
     };
 
-    let conn = db.0.lock();
-    conn.execute(
-        "INSERT INTO students
-         (id,name,age,phone,job_title,goal,enrollment_status,cccd_number,salesperson_id,created_at,updated_at,deleted_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10,NULL)",
-        params![
-            id, input.name.trim(), input.age, input.phone, input.job_title, input.goal,
-            input.enrollment_status, input.cccd_number, salesperson_id, now
-        ],
-    )?;
-    write_audit(&conn, &user.id, "student.create", &format!("Thêm học viên {}", input.name))?;
-
-    conn.query_row(&format!("SELECT {COLS} FROM students WHERE id = ?1"), [&id], map_student)
-        .map_err(Into::into)
+    db.conn
+        .execute(
+            "INSERT INTO students
+             (id,name,age,phone,job_title,goal,enrollment_status,cccd_number,salesperson_id,created_at,updated_at,deleted_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10,NULL)",
+            libsql::params![
+                id.clone(), input.name.trim().to_string(), input.age, input.phone.clone(),
+                input.job_title.clone(), input.goal.clone(), input.enrollment_status.clone(),
+                input.cccd_number.clone(), salesperson_id, now.clone()
+            ],
+        )
+        .await?;
+    write_audit(&db.conn, &user.id, "student.create", &format!("Thêm học viên {}", input.name)).await?;
+    one_student(&db.conn, &id).await
 }
 
-#[tauri::command]
-pub fn update_student(
-    token: String,
-    id: String,
+pub async fn update_student_impl(
+    token: &str,
+    id: &str,
     input: StudentInput,
-    db: State<Db>,
-    sessions: State<Sessions>,
+    db: &Db,
+    sessions: &Sessions,
 ) -> AppResult<Student> {
-    let user = current_user(&db, &sessions, &token)?;
-    require_role(&user, &["admin", "salesperson"])?;
+    let user = current_user(db, sessions, token).await?;
+    require_capability(&user, Capability::StudentEdit)?;
     validate(&input)?;
 
-    let conn = db.0.lock();
-    let prev_status: String = conn
-        .query_row("SELECT enrollment_status FROM students WHERE id = ?1", [&id], |r| r.get(0))
-        .map_err(|_| AppError::new("Không tìm thấy học viên."))?;
+    let (prev_status, owner): (String, Option<String>) = query_opt(
+        &db.conn,
+        "SELECT enrollment_status, salesperson_id FROM students WHERE id = ?1 AND deleted_at IS NULL",
+        libsql::params![id.to_string()],
+        |r| Ok((r.get::<String>(0)?, r.get::<Option<String>>(1)?)),
+    )
+    .await?
+    .ok_or_else(|| AppError::new("Không tìm thấy học viên."))?;
 
-    conn.execute(
-        "UPDATE students SET name=?2,age=?3,phone=?4,job_title=?5,goal=?6,
-         enrollment_status=?7,cccd_number=?8,updated_at=?9 WHERE id=?1",
-        params![
-            id, input.name.trim(), input.age, input.phone, input.job_title, input.goal,
-            input.enrollment_status, input.cccd_number, now_iso()
-        ],
-    )?;
+    if user.role == "salesperson" && owner.as_deref() != Some(user.id.as_str()) {
+        return Err(AppError::new("Bạn chỉ được sửa học viên do mình phụ trách."));
+    }
+
+    db.conn
+        .execute(
+            "UPDATE students SET name=?2,age=?3,phone=?4,job_title=?5,goal=?6,
+             enrollment_status=?7,cccd_number=?8,updated_at=?9 WHERE id=?1",
+            libsql::params![
+                id.to_string(), input.name.trim().to_string(), input.age, input.phone.clone(),
+                input.job_title.clone(), input.goal.clone(), input.enrollment_status.clone(),
+                input.cccd_number.clone(), now_iso()
+            ],
+        )
+        .await?;
 
     if prev_status != input.enrollment_status {
         write_audit(
-            &conn,
+            &db.conn,
             &user.id,
             "student.status_change",
             &format!("{}: {} → {}", input.name, prev_status, input.enrollment_status),
-        )?;
+        )
+        .await?;
     } else {
-        write_audit(&conn, &user.id, "student.update", &format!("Cập nhật {}", input.name))?;
+        write_audit(&db.conn, &user.id, "student.update", &format!("Cập nhật {}", input.name)).await?;
     }
 
-    conn.query_row(&format!("SELECT {COLS} FROM students WHERE id = ?1"), [&id], map_student)
-        .map_err(Into::into)
+    one_student(&db.conn, id).await
 }
 
-#[tauri::command]
-pub fn soft_delete_student(
-    token: String,
-    id: String,
-    db: State<Db>,
-    sessions: State<Sessions>,
+pub async fn soft_delete_student_impl(
+    token: &str,
+    id: &str,
+    db: &Db,
+    sessions: &Sessions,
 ) -> AppResult<()> {
-    let user = current_user(&db, &sessions, &token)?;
-    require_role(&user, &["admin"])?; // only admin can remove students
-    let conn = db.0.lock();
-    let affected = conn.execute(
-        "UPDATE students SET deleted_at=?2 WHERE id=?1 AND deleted_at IS NULL",
-        params![id, now_iso()],
-    )?;
+    let user = current_user(db, sessions, token).await?;
+    require_capability(&user, Capability::StudentDelete)?;
+    let affected = db
+        .conn
+        .execute(
+            "UPDATE students SET deleted_at=?2 WHERE id=?1 AND deleted_at IS NULL",
+            libsql::params![id.to_string(), now_iso()],
+        )
+        .await?;
     if affected == 0 {
         return Err(AppError::new("Không tìm thấy học viên."));
     }
-    write_audit(&conn, &user.id, "student.soft_delete", &format!("Ẩn học viên {id}"))?;
+    write_audit(&db.conn, &user.id, "student.soft_delete", &format!("Ẩn học viên {id}")).await?;
     Ok(())
+}
+
+// ---- Tauri command wrappers ----
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub async fn list_students(token: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Vec<Student>> {
+    list_students_impl(&token, &db, &sessions).await
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub async fn create_student(token: String, input: StudentInput, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Student> {
+    create_student_impl(&token, input, &db, &sessions).await
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub async fn update_student(token: String, id: String, input: StudentInput, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<Student> {
+    update_student_impl(&token, &id, input, &db, &sessions).await
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub async fn soft_delete_student(token: String, id: String, db: State<'_, Db>, sessions: State<'_, Sessions>) -> AppResult<()> {
+    soft_delete_student_impl(&token, &id, &db, &sessions).await
 }

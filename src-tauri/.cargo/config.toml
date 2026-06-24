@@ -1,0 +1,5 @@
+# libSQL's call chain is stack-heavy; the 1MB default Windows main-thread stack
+# overflows in debug. Reserve 32MB so the app (and `cargo test`/examples) don't
+# STATUS_STACK_OVERFLOW. Tokio worker threads get their stack set in lib.rs.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:33554432"]

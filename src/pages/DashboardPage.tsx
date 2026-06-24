@@ -29,6 +29,13 @@ export default function DashboardPage() {
   const prospects = students.filter((s) => s.enrollmentStatus === "prospect");
   const revenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
+  // Audit: everyone sees their own activity; admin sees everyone's.
+  // (Also enforced server-side in list_audit.)
+  const isAdmin = user.role === "admin";
+  const visibleLogs = isAdmin
+    ? auditLogs
+    : auditLogs.filter((l) => l.userId === user.id);
+
   const upcoming = [...sessions]
     .filter((s) => new Date(s.endTime) >= new Date())
     .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime))
@@ -123,11 +130,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Audit log */}
+      {/* Audit log — own activity; admin sees everyone's (also enforced server-side) */}
       <div className="card mt-6 p-5">
         <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-800">
           <TrendingUp size={18} className="text-brand-500" /> Nhật ký hoạt động
-          (Audit log)
+          (Audit log){isAdmin ? "" : " của bạn"}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -139,7 +146,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {auditLogs.slice(0, 8).map((log) => (
+              {visibleLogs.slice(0, 8).map((log) => (
                 <tr key={log.id} className="border-b border-slate-50">
                   <td className="py-2 pr-4 text-slate-500">
                     {formatDateTime(log.createdAt)}
@@ -152,6 +159,13 @@ export default function DashboardPage() {
                   <td className="py-2 text-slate-600">{log.detail}</td>
                 </tr>
               ))}
+              {visibleLogs.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-3 text-slate-400">
+                    Chưa có hoạt động nào.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

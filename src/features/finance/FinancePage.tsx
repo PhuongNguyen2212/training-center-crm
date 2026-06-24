@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
+  Download,
+  Eye,
   FileImage,
   FileText,
   Lock,
@@ -14,10 +16,22 @@ import { formatDate, formatVND } from "@/lib/labels";
 import { EmptyState, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import { verifyPassword } from "@/lib/crypto";
+import { exportCsv, dateStamp, type CsvColumn } from "@/lib/csv";
+import { errorMessage } from "@/lib/error";
 import type { PaymentDoc } from "@/types";
 
 const MAX_FILE_SIZE_MB = 5;
 const ACCEPTED = ["image/jpeg", "image/png", "application/pdf"] as const;
+
+// Read a File as base64 (without the `data:<mime>;base64,` prefix) for the backend.
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function FinancePage() {
   const user = useAuthStore((s) => s.currentUser)!;
@@ -26,6 +40,17 @@ export default function FinancePage() {
   const docs = useDataStore((s) => s.paymentDocs);
   const addPaymentDoc = useDataStore((s) => s.addPaymentDoc);
   const softDeletePaymentDoc = useDataStore((s) => s.softDeletePaymentDoc);
+  const viewPaymentDoc = useDataStore((s) => s.viewPaymentDoc);
+  const [viewError, setViewError] = useState("");
+
+  const openDoc = async (id: string) => {
+    setViewError("");
+    try {
+      await viewPaymentDoc(id);
+    } catch (e) {
+      setViewError(errorMessage(e));
+    }
+  };
 
   const canView = can(user.role, "payment.view");
   const canUpload = can(user.role, "payment.upload");
@@ -51,17 +76,43 @@ export default function FinancePage() {
 
   const total = visible.reduce((sum, d) => sum + d.amount, 0);
 
+  const exportDocs = () => {
+    const columns: CsvColumn<PaymentDoc>[] = [
+      { header: "Tệp", value: (d) => d.fileName },
+      { header: "Học viên", value: (d) => studentName(d.studentId) },
+      { header: "Số tiền (VND)", value: (d) => d.amount },
+      { header: "Ngày thanh toán", value: (d) => formatDate(d.paymentDate) },
+      { header: "Ghi chú", value: (d) => d.note },
+      { header: "Người tải", value: (d) => uploaderName(d.uploadedBy) },
+      { header: "Ngày tải", value: (d) => formatDate(d.uploadedAt) },
+    ];
+    exportCsv(`chung-tu-${dateStamp()}.csv`, visible, columns);
+  };
+
   return (
     <div>
       <PageHeader
         title="Tài chính"
         subtitle="Chứng từ thanh toán (ảnh hoặc PDF) gắn với học viên"
         actions={
-          canUpload ? (
-            <button className="btn-primary" onClick={() => setUploadOpen(true)}>
-              <Plus size={16} /> Tải lên chứng từ
+          <div className="flex gap-2">
+            <button
+              className="btn-outline"
+              onClick={exportDocs}
+              disabled={visible.length === 0}
+              title="Xuất danh sách chứng từ ra CSV"
+            >
+              <Download size={16} /> Xuất CSV
             </button>
-          ) : undefined
+            {canUpload && (
+              <button
+                className="btn-primary"
+                onClick={() => setUploadOpen(true)}
+              >
+                <Plus size={16} /> Tải lên chứng từ
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -83,6 +134,12 @@ export default function FinancePage() {
       {!canUpload && (
         <p className="mb-3 flex items-center gap-1 text-xs text-slate-400">
           <Lock size={12} /> Bạn chỉ có quyền xem chứng từ.
+        </p>
+      )}
+
+      {viewError && (
+        <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {viewError}
         </p>
       )}
 
@@ -110,16 +167,22 @@ export default function FinancePage() {
                     className="border-t border-slate-100 hover:bg-slate-50"
                   >
                     <td className="px-4 py-3">
-                      <span className="flex items-center gap-2 text-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => openDoc(d.id)}
+                        title="Xem tệp"
+                        className="flex items-center gap-2 text-slate-700 hover:text-sky-700"
+                      >
                         {d.fileType === "application/pdf" ? (
                           <FileText size={16} className="text-rose-500" />
                         ) : (
                           <FileImage size={16} className="text-sky-500" />
                         )}
-                        <span className="max-w-[160px] truncate">
+                        <span className="max-w-[160px] truncate underline-offset-2 hover:underline">
                           {d.fileName}
                         </span>
-                      </span>
+                        <Eye size={14} className="text-slate-400" />
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {studentName(d.studentId)}
@@ -191,6 +254,7 @@ function UploadForm({
     paymentDate: string;
     fileName: string;
     fileType: PaymentDoc["fileType"];
+    fileBase64: string;
     note: string | null;
   }) => void;
 }) {
@@ -200,10 +264,8 @@ function UploadForm({
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
   const [note, setNote] = useState("");
-  const [file, setFile] = useState<{
-    name: string;
-    type: PaymentDoc["fileType"];
-  } | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,23 +280,32 @@ function UploadForm({
       return;
     }
     setError("");
-    setFile({ name: f.name, type: f.type as PaymentDoc["fileType"] });
+    setFile(f);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId || !amount || !paymentDate || !file) {
       setError("Vui lòng điền đầy đủ và chọn tệp chứng từ.");
       return;
     }
-    onSubmit({
-      studentId,
-      amount: Number(amount),
-      paymentDate: new Date(paymentDate).toISOString(),
-      fileName: file.name,
-      fileType: file.type,
-      note: note.trim() || null,
-    });
+    setBusy(true);
+    try {
+      const fileBase64 = await fileToBase64(file);
+      onSubmit({
+        studentId,
+        amount: Number(amount),
+        paymentDate: new Date(paymentDate).toISOString(),
+        fileName: file.name,
+        fileType: file.type as PaymentDoc["fileType"],
+        fileBase64,
+        note: note.trim() || null,
+      });
+    } catch {
+      setError("Không đọc được tệp. Vui lòng thử lại.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -244,11 +315,16 @@ function UploadForm({
       onClose={onClose}
       footer={
         <>
-          <button className="btn-outline" onClick={onClose}>
+          <button className="btn-outline" onClick={onClose} disabled={busy}>
             Hủy
           </button>
-          <button type="submit" form="upload-form" className="btn-primary">
-            Tải lên
+          <button
+            type="submit"
+            form="upload-form"
+            className="btn-primary"
+            disabled={busy}
+          >
+            {busy ? "Đang tải lên..." : "Tải lên"}
           </button>
         </>
       }

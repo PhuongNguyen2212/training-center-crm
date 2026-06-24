@@ -11,7 +11,7 @@ React (frontend)                 Rust (Tauri backend)              SQLite
 src/lib/backend.ts  ── invoke ──▶ src-tauri/src/commands/* ──────▶ crm.db
   (typed client)      (IPC)         - kiểm tra session token         (app data dir)
                                      - đọc lại role từ DB
-                                     - require_role(...)
+                                     - require_capability(...)
                                      - ghi audit_logs
 ```
 
@@ -34,7 +34,10 @@ src/lib/backend.ts  ── invoke ──▶ src-tauri/src/commands/* ───�
 | `lib.rs` | Khởi tạo DB ở app-data dir, chạy migration, seed, đăng ký command |
 | `db.rs` | Mở kết nối SQLite + áp dụng `migrations/0001_init.sql` |
 | `seed.rs` | Seed 5 tài khoản (băm bcrypt) + học viên + lớp khi DB rỗng |
-| `auth.rs` | Session, lockout, `current_user`, `require_role`, `write_audit` |
+| `auth.rs` | Session, lockout, `current_user`, `require_capability` (ma trận quyền), `write_audit` |
+| `storage.rs` | Lưu/đọc/validate file chứng từ trên đĩa (type, size ≤ 5MB, magic byte) |
+| `commands/payments.rs` | `list/create/read/soft_delete_payment_doc` (bytes ra `payment_docs/`) |
+| `commands/backup.rs` | `backup_database` (VACUUM INTO), `restore_database` (re-auth), `list_backups` |
 | `models.rs` | Struct serde (camelCase) cho input/output |
 | `error.rs` | `AppError` serialize về frontend |
 | `commands/auth.rs` | `login`, `logout`, `me` |
@@ -85,9 +88,18 @@ staff/users (CRUD + treo/đổi quyền/đặt lại mật khẩu), audit. Clien
 - Test: 6 test Rust (`cargo test`) + 48 test frontend đều PASS; `cargo build`
   & `npm run build` sạch.
 
-**Phase 2 — còn lại (hạ tầng, không phải CRUD):**
-1. Lưu file chứng từ thật qua Tauri `fs` (hiện chỉ lưu tên file vào `file_path`).
-2. OAuth Google chạy phía backend; refresh token lưu trong OS keychain (hiện
+**Phase 2 — đã bổ sung (Phase 3):**
+- ✅ **Scoping server-side** cho giáo viên (lớp/buổi/điểm danh/bài tập của mình)
+  và nhân viên tư vấn (học viên của mình) — lọc trong SQL.
+- ✅ **Lưu file chứng từ thật** ra `payment_docs/` qua Rust `std::fs`
+  (validate type + size ≤ 5MB + magic byte, rollback nếu lỗi) + lệnh đọc lại.
+- ✅ **Sao lưu/khôi phục `.db`** (`VACUUM INTO` + Backup API, re-auth admin) + UI.
+- ✅ **`require_role` → `require_capability`**: ma trận quyền gom một chỗ trong
+  `auth.rs`, deny-by-default.
+
+**Còn lại / đang cân nhắc:**
+1. OAuth Google chạy phía backend; refresh token lưu trong OS keychain (hiện
    Google Calendar chỉ hoạt động ở bản web qua GIS).
-3. Sao lưu/khôi phục file `.db`.
-4. Test Rust cho các command CRUD mới (hiện test phủ auth/lockout/CCCD).
+2. **SQLCipher** — mã hóa-khi-nghỉ cho `crm.db`.
+3. **Ký số installer** (code-signing cert) để tránh cảnh báo SmartScreen.
+4. Test Rust cho các command CRUD mới (hiện test phủ auth/lockout/CCCD/capability/storage).

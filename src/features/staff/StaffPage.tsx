@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  DatabaseBackup,
   KeyRound,
   Pencil,
   Plus,
@@ -185,6 +186,8 @@ export default function StaffPage() {
           </div>
         )}
       </div>
+
+      <BackupRestore />
 
       {createOpen && (
         <CreateStaff
@@ -405,5 +408,22 @@ function ResetPassword({
       <PasswordField value={pw} onChange={setPw} label="Mật khẩu mới" />
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
     </Modal>
+  );
+}
+
+// Database is hosted on Turso Cloud (automatic backups); payment files live on
+// Cloudflare R2. No manual local backup/restore is needed anymore.
+function BackupRestore() {
+  return (
+    <div className="card mt-6 p-5">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
+        <DatabaseBackup size={18} /> Sao lưu dữ liệu
+      </h2>
+      <p className="mt-2 text-sm text-slate-500">
+        Cơ sở dữ liệu chạy trên <strong>Turso Cloud</strong> và được{" "}
+        <strong>tự động sao lưu</strong> (khôi phục theo thời điểm). Bạn không cần
+        sao lưu thủ công. Tệp chứng từ được lưu an toàn trên Cloudflare R2.
+      </p>
+    </div>
   );
 }

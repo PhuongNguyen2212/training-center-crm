@@ -1,0 +1,22 @@
+# Fly.io config for the CRM API server. Rename `app` to your own unique name.
+# Deploy:  fly launch --no-deploy   (then set secrets, then `fly deploy`)
+app = "crm-trungtam-server"
+primary_region = "sin" # Singapore — close to Vietnam; change if you like
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

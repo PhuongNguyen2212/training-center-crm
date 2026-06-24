@@ -1,6 +1,7 @@
 // Sidebar navigation, each item gated by a capability from the permission matrix.
 
 import {
+  BookCheck,
   CalendarDays,
   ClipboardCheck,
   GraduationCap,
@@ -41,7 +42,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ClipboardCheck,
     cap: "attendance.view",
   },
+  {
+    to: "/homework",
+    label: "Bài tập về nhà",
+    icon: BookCheck,
+    cap: "homework.record",
+  },
   { to: "/finance", label: "Tài chính", icon: Receipt, cap: "payment.view" },
-  { to: "/kpi", label: "KPI", icon: Target, cap: null },
+  { to: "/kpi", label: "KPI", icon: Target, cap: "sales.view" },
   { to: "/staff", label: "Nhân sự", icon: UserCog, cap: "users.manage" },
 ];

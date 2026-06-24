@@ -4,6 +4,7 @@ import {
   GraduationCap,
   Pencil,
   Plus,
+  Trash2,
   UserMinus,
   UserPlus,
   Users,
@@ -37,9 +38,12 @@ export default function ClassesPage() {
   const enrollStudent = useDataStore((s) => s.enrollStudent);
   const unenrollStudent = useDataStore((s) => s.unenrollStudent);
   const setClassStatus = useDataStore((s) => s.setClassStatus);
+  const deleteClass = useDataStore((s) => s.deleteClass);
 
   const canView = can(user.role, "classes.view");
-  const canEdit = can(user.role, "classes.edit");
+  const canEdit = can(user.role, "classes.edit"); // admin: create/status/enroll
+  // Teachers may edit info of their OWN classes (visible already scopes to own).
+  const canEditInfo = canEdit || user.role === "teacher";
 
   const visible = useMemo(
     () =>
@@ -55,6 +59,7 @@ export default function ClassesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Class | null>(null);
   const [enrollOpen, setEnrollOpen] = useState(false);
+  const [deletingClass, setDeletingClass] = useState<Class | null>(null);
 
   if (!canView) return <NoAccess />;
 
@@ -157,25 +162,27 @@ export default function ClassesPage() {
                       {selected.courseName} · GV: {teacherName(selected.teacherId)}
                     </p>
                   </div>
-                  {canEdit && (
+                  {canEditInfo && (
                     <div className="flex items-center gap-2">
-                      <select
-                        className="input w-40"
-                        value={selected.status}
-                        onChange={(e) =>
-                          setClassStatus(
-                            selected.id,
-                            e.target.value as ClassStatus,
-                            user.id,
-                          )
-                        }
-                      >
-                        {STATUSES.map((st) => (
-                          <option key={st} value={st}>
-                            {CLASS_STATUS_LABELS[st]}
-                          </option>
-                        ))}
-                      </select>
+                      {canEdit && (
+                        <select
+                          className="input w-40"
+                          value={selected.status}
+                          onChange={(e) =>
+                            setClassStatus(
+                              selected.id,
+                              e.target.value as ClassStatus,
+                              user.id,
+                            )
+                          }
+                        >
+                          {STATUSES.map((st) => (
+                            <option key={st} value={st}>
+                              {CLASS_STATUS_LABELS[st]}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         className="btn-outline"
                         onClick={() => {
@@ -185,6 +192,14 @@ export default function ClassesPage() {
                       >
                         <Pencil size={15} /> Sửa
                       </button>
+                      {canEdit && (
+                        <button
+                          className="btn-outline text-rose-600 hover:bg-rose-50"
+                          onClick={() => setDeletingClass(selected)}
+                        >
+                          <Trash2 size={15} /> Xóa
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -283,6 +298,7 @@ export default function ClassesPage() {
       {formOpen && (
         <ClassForm
           cls={editing}
+          canAssignTeacher={user.role === "admin"}
           onClose={() => setFormOpen(false)}
           onSubmit={(data) => {
             if (editing) updateClass(editing.id, data, user.id);
@@ -299,16 +315,49 @@ export default function ClassesPage() {
           onEnroll={(studentId) => enrollStudent(selected.id, studentId, user.id)}
         />
       )}
+
+      <Modal
+        open={Boolean(deletingClass)}
+        title="Xóa lớp học"
+        onClose={() => setDeletingClass(null)}
+        footer={
+          <>
+            <button className="btn-outline" onClick={() => setDeletingClass(null)}>
+              Hủy
+            </button>
+            <button
+              className="btn-danger"
+              onClick={async () => {
+                if (deletingClass) {
+                  await deleteClass(deletingClass.id, user.id);
+                  setSelectedId(null);
+                }
+                setDeletingClass(null);
+              }}
+            >
+              Xác nhận xóa
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Xóa lớp <strong>{deletingClass?.name}</strong>? Lớp và danh sách ghi
+          danh sẽ bị xóa vĩnh viễn. Các buổi học của lớp được giữ lại nhưng gỡ
+          liên kết. Thao tác không thể hoàn tác.
+        </p>
+      </Modal>
     </div>
   );
 }
 
 function ClassForm({
   cls,
+  canAssignTeacher,
   onClose,
   onSubmit,
 }: {
   cls: Class | null;
+  canAssignTeacher: boolean;
   onClose: () => void;
   onSubmit: (data: {
     name: string;
@@ -365,21 +414,23 @@ function ClassForm({
             placeholder="Giao tiếp tiếng Anh"
           />
         </div>
-        <div>
-          <label className="label">Giáo viên phụ trách</label>
-          <select
-            className="input"
-            value={teacherId}
-            onChange={(e) => setTeacherId(e.target.value)}
-          >
-            <option value="">— Chọn giáo viên —</option>
-            {teachers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {canAssignTeacher && (
+          <div>
+            <label className="label">Giáo viên phụ trách</label>
+            <select
+              className="input"
+              value={teacherId}
+              onChange={(e) => setTeacherId(e.target.value)}
+            >
+              <option value="">— Chọn giáo viên —</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {error && <p className="text-sm text-rose-600">{error}</p>}
       </form>
     </Modal>

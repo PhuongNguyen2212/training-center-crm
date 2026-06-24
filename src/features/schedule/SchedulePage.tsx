@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
+import { errorMessage } from "@/lib/error";
+import { useBackend } from "@/lib/backend";
 import { can } from "@/lib/permissions";
 import { formatTime } from "@/lib/labels";
 import { EmptyState, NoAccess, PageHeader } from "@/components/ui";
@@ -64,7 +66,9 @@ export default function SchedulePage() {
   const upsertFromGoogle = useDataStore((s) => s.upsertSessionsFromGoogle);
 
   const canView = can(user.role, "schedule.view");
-  const canEdit = can(user.role, "schedule.edit");
+  const canEdit = can(user.role, "schedule.edit"); // admin: any session
+  // Teachers may create/edit/delete their OWN sessions (visible scopes to own).
+  const canEditOwn = canEdit || user.role === "teacher";
 
   const googleConfigured = isGoogleConfigured();
 
@@ -105,7 +109,7 @@ export default function SchedulePage() {
       setConnected(true);
       await pull();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     } finally {
       setSyncing(false);
     }
@@ -146,7 +150,7 @@ export default function SchedulePage() {
     try {
       await pull();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
       setConnected(isConnected());
     } finally {
       setSyncing(false);
@@ -172,7 +176,7 @@ export default function SchedulePage() {
       }
       setFormOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -188,7 +192,7 @@ export default function SchedulePage() {
       deleteSession(session.id, user.id);
       setDeleting(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -201,16 +205,20 @@ export default function SchedulePage() {
         subtitle="Buổi học được quản lý và đồng bộ qua Google Calendar"
         actions={
           <div className="flex gap-2">
-            {googleConfigured && !connected && (
+            {/* Desktop pushes to Google automatically via the backend service
+                account; the browser-only connect/sync controls are web-demo only. */}
+            {!useBackend() && googleConfigured && !connected && (
               <button className="btn-outline" onClick={handleConnect} disabled={syncing}>
                 <Plug size={16} /> Kết nối Google
               </button>
             )}
-            <button className="btn-outline" onClick={handleSync} disabled={syncing}>
-              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Đang đồng bộ..." : "Đồng bộ"}
-            </button>
-            {canEdit && (
+            {!useBackend() && (
+              <button className="btn-outline" onClick={handleSync} disabled={syncing}>
+                <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+                {syncing ? "Đang đồng bộ..." : "Đồng bộ"}
+              </button>
+            )}
+            {canEditOwn && (
               <button
                 className="btn-primary"
                 onClick={() => {
@@ -227,7 +235,13 @@ export default function SchedulePage() {
       />
 
       {/* Connection banner */}
-      {googleConfigured ? (
+      {useBackend() ? (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <Cloud size={16} />
+          Buổi học tự động đồng bộ lên Google Calendar chung — giáo viên/admin xem
+          được trên điện thoại (sau khi đăng ký lịch đó).
+        </div>
+      ) : googleConfigured ? (
         <div
           className={`mb-4 flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${
             connected
@@ -260,10 +274,9 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {!canEdit && (
+      {user.role === "teacher" && (
         <p className="mb-4 text-xs text-slate-400">
-          Giáo viên xem lịch của mình; để chỉnh sửa, vui lòng thao tác trực tiếp
-          trên Google Calendar.
+          Bạn quản lý các buổi học của mình; chúng tự lên Google Calendar chung.
         </p>
       )}
 
@@ -291,7 +304,7 @@ export default function SchedulePage() {
                           GV: {teacherName(s.teacherId)}
                         </p>
                       </div>
-                      {canEdit && (
+                      {canEditOwn && (
                         <div className="flex gap-1">
                           <button
                             className="btn-ghost p-1.5"
@@ -327,6 +340,7 @@ export default function SchedulePage() {
         <SessionForm
           session={editing}
           busy={busy}
+          canAssignTeacher={user.role === "admin"}
           onClose={() => setFormOpen(false)}
           onSubmit={handleSubmit}
         />
@@ -365,11 +379,13 @@ export default function SchedulePage() {
 function SessionForm({
   session,
   busy,
+  canAssignTeacher,
   onClose,
   onSubmit,
 }: {
   session: Session | null;
   busy: boolean;
+  canAssignTeacher: boolean;
   onClose: () => void;
   onSubmit: (data: SessionInput) => void;
 }) {
@@ -450,21 +466,23 @@ function SessionForm({
             />
           </div>
         </div>
-        <div>
-          <label className="label">Giáo viên</label>
-          <select
-            className="input"
-            value={teacherId}
-            onChange={(e) => setTeacherId(e.target.value)}
-          >
-            <option value="">— Chọn giáo viên —</option>
-            {teachers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {canAssignTeacher && (
+          <div>
+            <label className="label">Giáo viên</label>
+            <select
+              className="input"
+              value={teacherId}
+              onChange={(e) => setTeacherId(e.target.value)}
+            >
+              <option value="">— Chọn giáo viên —</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {error && <p className="text-sm text-rose-600">{error}</p>}
       </form>
     </Modal>

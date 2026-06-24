@@ -1,11 +1,13 @@
 use crate::error::AppResult;
 use crate::util::now_iso;
-use rusqlite::{params, Connection};
+use libsql::Connection;
 
 /// Populate demo data the first time the DB is created (when `users` is empty).
-/// Passwords are bcrypt-hashed (cost 12) — never stored as plaintext.
-pub fn seed_if_empty(conn: &Connection) -> AppResult<()> {
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0))?;
+/// Runs once against the shared Turso DB. Passwords are bcrypt-hashed (cost 12).
+pub async fn seed_if_empty(conn: &Connection) -> AppResult<()> {
+    let count = crate::db::query_opt(conn, "SELECT COUNT(*) FROM users", (), |r| r.get::<i64>(0))
+        .await?
+        .unwrap_or(0);
     if count > 0 {
         return Ok(());
     }
@@ -25,8 +27,9 @@ pub fn seed_if_empty(conn: &Connection) -> AppResult<()> {
         conn.execute(
             "INSERT INTO users (id,name,email,password_hash,role,status,created_at,updated_at)
              VALUES (?1,?2,?3,?4,?5,'active',?6,?6)",
-            params![id, name, email, hash, role, now],
-        )?;
+            libsql::params![id.to_string(), name.to_string(), email.to_string(), hash, role.to_string(), now.clone()],
+        )
+        .await?;
     }
 
     // (id, name, age, phone, job, goal, status, cccd)
@@ -43,8 +46,9 @@ pub fn seed_if_empty(conn: &Connection) -> AppResult<()> {
             "INSERT INTO students
              (id,name,age,phone,job_title,goal,enrollment_status,cccd_number,salesperson_id,created_at,updated_at,deleted_at)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,'u-sales-1',?9,?9,NULL)",
-            params![id, name, age, phone, job, goal, status, cccd, now],
-        )?;
+            libsql::params![id.to_string(), name.to_string(), age, phone.to_string(), job.to_string(), goal.to_string(), status.to_string(), cccd.map(|s| s.to_string()), now.clone()],
+        )
+        .await?;
     }
 
     // (id, name, course, teacher)
@@ -57,8 +61,9 @@ pub fn seed_if_empty(conn: &Connection) -> AppResult<()> {
         conn.execute(
             "INSERT INTO classes (id,name,course_name,teacher_id,status,created_at,updated_at)
              VALUES (?1,?2,?3,?4,'active',?5,?5)",
-            params![id, name, course, teacher, now],
-        )?;
+            libsql::params![id.to_string(), name.to_string(), course.to_string(), teacher.to_string(), now.clone()],
+        )
+        .await?;
     }
 
     let enrollments = [
@@ -71,8 +76,9 @@ pub fn seed_if_empty(conn: &Connection) -> AppResult<()> {
     for (class_id, student_id) in enrollments {
         conn.execute(
             "INSERT INTO class_students (class_id,student_id,enrolled_at) VALUES (?1,?2,?3)",
-            params![class_id, student_id, now],
-        )?;
+            libsql::params![class_id.to_string(), student_id.to_string(), now.clone()],
+        )
+        .await?;
     }
 
     Ok(())

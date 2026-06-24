@@ -10,19 +10,43 @@ rust-version = "1.77.2"
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# HTTP API server binary (web/mobile backend): `cargo run --bin server`.
+[[bin]]
+name = "server"
+path = "src/bin/server.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Used by build.rs to embed the Google service-account key (base64) at build time.
+base64 = "0.22"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# Tauri (desktop GUI) is optional so the `server` binary builds without it
+# (no webkit/GUI system deps) — `cargo build --bin server --no-default-features`.
+tauri = { version = "2", features = [], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Data layer
-rusqlite = { version = "0.32", features = ["bundled"] }
+# Data layer — Turso (libSQL) over HTTP, online-only. `remote`+`tls` only (no
+# default `core` feature) so it builds pure-Rust, no bindgen/LLVM.
+libsql = { version = "0.6", default-features = false, features = ["remote", "tls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "macros"] }
+# HTTP API server (web/mobile clients talk to this; reuses the command logic).
+axum = "0.7"
+tower-http = { version = "0.6", features = ["cors"] }
+dotenvy = "0.15"
 bcrypt = "0.15"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["clock"] }
 parking_lot = "0.12"
+base64 = "0.22"
+# Cloudflare R2 (S3-compatible) for payment document files — rustls (no OpenSSL/LLVM).
+rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"] }
+# Google Calendar via service account (JWT bearer auth + REST), rustls.
+jsonwebtoken = "9"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 
 [features]
-custom-protocol = ["tauri/custom-protocol"]
+default = ["desktop"]
+# Desktop app (Tauri GUI). Disable for the headless HTTP server build.
+desktop = ["dep:tauri"]
+custom-protocol = ["tauri?/custom-protocol"]

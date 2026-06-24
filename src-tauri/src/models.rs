@@ -151,5 +151,16 @@ pub struct PaymentDocInput {
     pub payment_date: String,
     pub file_name: String,
     pub file_type: String,
+    /// Base64-encoded file content; decoded and written to disk server-side.
+    pub file_base64: String,
     pub note: Option<String>,
+}
+
+/// File content returned for viewing a payment document.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentDocFile {
+    pub file_name: String,
+    pub file_type: String,
+    pub base64: String,
 }

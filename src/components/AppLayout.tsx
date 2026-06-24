@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { GraduationCap, KeyRound, LogOut } from "lucide-react";
+import { GraduationCap, KeyRound, LogOut, Menu, X } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth-store";
 import { useDataStore } from "@/store/data-store";
@@ -8,13 +8,15 @@ import { can } from "@/lib/permissions";
 import { ROLE_LABELS } from "@/lib/labels";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
-import { backend, isTauri } from "@/lib/backend";
+import { NotificationBell } from "@/components/NotificationBell";
+import { backend, useBackend } from "@/lib/backend";
 
 export default function AppLayout() {
   const user = useAuthStore((s) => s.currentUser)!;
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [pwOpen, setPwOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
 
   const items = NAV_ITEMS.filter((i) => i.cap === null || can(user.role, i.cap));
 
@@ -31,7 +33,7 @@ export default function AppLayout() {
   // revalidated on startup. If the token is stale, force re-login; otherwise
   // refresh data from SQLite.
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!useBackend()) return;
     const token = useAuthStore.getState().token;
     if (!token) {
       handleLogout();
@@ -45,8 +47,12 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r border-slate-200 bg-white">
+      {/* Sidebar — static on desktop, slide-in drawer on mobile */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform lg:static lg:z-auto lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div className="flex items-center gap-2 border-b border-slate-200 px-5 py-4">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white">
             <GraduationCap size={20} />
@@ -55,6 +61,12 @@ export default function AppLayout() {
             <p className="text-sm font-semibold text-slate-800">CRM Trung tâm</p>
             <p className="text-xs text-slate-400">Quản lý đào tạo</p>
           </div>
+          <button
+            className="ml-auto rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
@@ -65,6 +77,7 @@ export default function AppLayout() {
                 key={item.to}
                 to={item.to}
                 end={item.to === "/"}
+                onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isActive
@@ -108,9 +121,30 @@ export default function AppLayout() {
 
       {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
 
+      {/* Backdrop behind the mobile drawer */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Main */}
-      <main className="flex-1 overflow-y-auto bg-slate-100 p-8">
-        <Outlet />
+      <main className="flex flex-1 flex-col overflow-hidden bg-slate-100">
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 lg:px-8">
+          <button
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+            title="Menu"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex-1" />
+          <NotificationBell />
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

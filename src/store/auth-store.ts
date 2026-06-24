@@ -7,7 +7,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@/types";
 import { verifyPassword } from "@/lib/crypto";
-import { backend, isTauri } from "@/lib/backend";
+import { backend, useBackend } from "@/lib/backend";
+import { errorMessage } from "@/lib/error";
 import { useDataStore } from "./data-store";
 
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -52,17 +53,14 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email, password) => {
         // ---- Desktop: real backend ----
-        if (isTauri()) {
+        if (useBackend()) {
           try {
             const { token, user } = await backend.login(email, password);
             set({ currentUser: user, token, lastActivity: Date.now() });
             await useDataStore.getState().hydrateFromBackend(token);
             return { ok: true, user };
           } catch (e) {
-            return {
-              ok: false,
-              error: e instanceof Error ? e.message : String(e),
-            };
+            return { ok: false, error: errorMessage(e) };
           }
         }
 
@@ -127,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         const { token } = get();
-        if (isTauri() && token) backend.logout(token).catch(() => {});
+        if (useBackend() && token) backend.logout(token).catch(() => {});
         set({ currentUser: null, token: null });
       },
 

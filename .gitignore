@@ -10,6 +10,17 @@ dist-ssr
 src-tauri/target
 src-tauri/gen
 
+# Code-signing (chứa thumbprint / khóa riêng — không commit)
+src-tauri/tauri.signing.json
+*.pfx
+*.p12
+
+# Google service account key — không commit
+google-sa.json
+**/google-sa.json
+mercurial-snow-*.json
+*.iam.gserviceaccount.json
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

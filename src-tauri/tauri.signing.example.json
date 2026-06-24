@@ -1,0 +1,10 @@
+{
+  "_comment": "Lớp cấu hình ký số cho Windows. KHÔNG commit bản thật (chứa thumbprint). Sao chép thành tauri.signing.json, điền thumbprint của chứng chỉ code-signing đã import vào Windows cert store, rồi build với: npm run tauri build -- --config src-tauri/tauri.signing.json",
+  "bundle": {
+    "windows": {
+      "certificateThumbprint": "ĐIỀN_THUMBPRINT_CHỨNG_CHỈ_TẠI_ĐÂY",
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    }
+  }
+}
