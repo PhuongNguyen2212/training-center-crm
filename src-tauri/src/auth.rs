@@ -205,6 +205,77 @@ mod tests {
     }
 
     #[test]
+    fn admin_is_allowed_every_capability() {
+        use Capability::*;
+        let admin = AuthUser {
+            id: "a".into(),
+            role: "admin".into(),
+        };
+        for cap in [
+            ScheduleView,
+            ScheduleEdit,
+            StudentView,
+            StudentEdit,
+            StudentDelete,
+            AttendanceView,
+            AttendanceMark,
+            HomeworkView,
+            HomeworkRecord,
+            PaymentView,
+            PaymentUpload,
+            PaymentDelete,
+            ManageUsers,
+            DbBackup,
+            DbRestore,
+        ] {
+            assert!(require_capability(&admin, cap).is_ok());
+        }
+    }
+
+    #[test]
+    fn unknown_role_is_denied_by_default() {
+        use Capability::*;
+        let stranger = AuthUser {
+            id: "z".into(),
+            role: "intern".into(), // not in the matrix
+        };
+        for cap in [
+            StudentView,
+            ScheduleView,
+            PaymentView,
+            AttendanceMark,
+            ManageUsers,
+        ] {
+            assert!(require_capability(&stranger, cap).is_err());
+        }
+    }
+
+    #[test]
+    fn salesperson_edits_students_but_not_schedule_or_attendance() {
+        let sales = AuthUser {
+            id: "s".into(),
+            role: "salesperson".into(),
+        };
+        assert!(require_capability(&sales, Capability::StudentEdit).is_ok());
+        assert!(require_capability(&sales, Capability::ScheduleView).is_err());
+        assert!(require_capability(&sales, Capability::AttendanceView).is_err());
+    }
+
+    #[test]
+    fn below_threshold_does_not_lock_and_clear_resets() {
+        let guard = LoginGuard(Mutex::new(HashMap::new()));
+        // One short of the limit: not locked yet.
+        for _ in 0..MAX_FAILED_ATTEMPTS - 1 {
+            assert!(!record_failure(&guard, "x@b.vn"));
+        }
+        assert!(is_locked(&guard, "x@b.vn").is_none());
+        // A successful login clears the counter, so the next failure starts fresh.
+        clear_failures(&guard, "x@b.vn");
+        assert!(!record_failure(&guard, "x@b.vn"));
+        assert!(is_locked(&guard, "x@b.vn").is_none());
+    }
+
+    #[test]
     fn lockout_triggers_after_max_attempts() {
         let guard = LoginGuard(Mutex::new(HashMap::new()));
         for _ in 0..MAX_FAILED_ATTEMPTS - 1 {

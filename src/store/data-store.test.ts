@@ -82,6 +82,33 @@ describe("Nhân sự (HR) — tạo tài khoản an toàn", () => {
   });
 });
 
+describe("Học viên — thêm mới (store action)", () => {
+  it("addStudent tạo học viên với id sinh tự động và ghi audit student.create", async () => {
+    const before = useDataStore.getState().students.length;
+    await useDataStore.getState().addStudent(
+      {
+        name: "Đỗ Thị Mai",
+        age: 22,
+        phone: "0900000000",
+        jobTitle: "Sinh viên",
+        goal: "IELTS 7.0",
+        enrollmentStatus: "prospect",
+        cccdNumber: null,
+        salespersonId: "u-sales-1",
+      },
+      "u-admin",
+    );
+    const students = useDataStore.getState().students;
+    expect(students.length).toBe(before + 1);
+    const created = students.find((s) => s.name === "Đỗ Thị Mai")!;
+    expect(created.id).toBeTruthy();
+    expect(created.deletedAt).toBeNull();
+    expect(
+      useDataStore.getState().auditLogs.some((l) => l.action === "student.create"),
+    ).toBe(true);
+  });
+});
+
 describe("Lớp học — ghi danh / rút học viên", () => {
   it("tạo lớp mới có sĩ số rỗng và trạng thái active", () => {
     useDataStore.getState().addClass(
