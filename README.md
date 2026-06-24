@@ -1,5 +1,7 @@
 # Training Center CRM
 
+[![CI](https://github.com/PhuongNguyen2212/training-center-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/PhuongNguyen2212/training-center-crm/actions/workflows/ci.yml)
+
 A desktop + web CRM for managing a training center / language school
 (Vietnamese-first UI). One shared cloud database serves the desktop app, the web
 app, and mobile browsers — built for many teacher/admin machines online.
