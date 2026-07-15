@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Observability**: structured request logging (`tracing` + `TraceLayer`) on
+  the API server — method, path, status, latency per request; startup and CORS
+  posture logged. Level via `RUST_LOG`.
+- **Automated backups**: nightly GitHub Actions cron dumps every table from
+  Turso and uploads the `.sql` to R2 (`backups/`), plus a manual trigger and a
+  documented restore drill (docs/backup.md).
 - **Session expiry**: sessions now end after 60 minutes of inactivity or 12
   hours after login (sliding idle window + absolute lifetime), enforced in one
   place (`Sessions::resolve`).

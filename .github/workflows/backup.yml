@@ -1,0 +1,37 @@
+name: Nightly DB backup
+
+on:
+  schedule:
+    # 19:00 UTC = 02:00 Vietnam — nightly, while the center is closed.
+    - cron: "0 19 * * *"
+  workflow_dispatch: {} # manual "Run workflow" button for on-demand backups
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: backup
+
+      # Headless build — no Tauri, no system deps. Dumps every table from
+      # Turso and uploads the .sql file to R2 under backups/.
+      - name: Dump Turso -> R2
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: cargo run --release --bin backup --no-default-features

@@ -10,6 +10,7 @@ mod secrets;
 mod auth;
 mod commands;
 mod db;
+mod dump;
 mod error;
 mod gcal;
 mod models;
@@ -20,6 +21,24 @@ mod storage;
 mod util;
 
 pub use server::serve;
+
+// ---- Facade for the `backup` binary (modules stay private) ----
+
+/// Open the shared Turso database (applies schema/migrations like the server).
+pub async fn backup_db_open(url: &str, token: &str) -> error::AppResult<db::Db> {
+    db::open(url, token).await
+}
+
+/// Dump every table as replayable INSERT statements.
+pub async fn backup_dump(db: &db::Db) -> error::AppResult<String> {
+    dump::dump_all(&db.conn).await
+}
+
+/// Upload a backup file to R2 (reads R2_* from the environment).
+pub async fn backup_upload(key: &str, bytes: &[u8]) -> error::AppResult<()> {
+    let r2 = storage::R2::from_env()?;
+    storage::put(&r2, key, bytes, "application/sql").await
+}
 
 /// Test-only public surface for DB-backed integration tests (see `tests/`).
 /// Gated on `db-tests` because it relies on the in-memory libSQL backend, which

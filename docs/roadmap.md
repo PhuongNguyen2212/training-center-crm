@@ -90,8 +90,10 @@ Phased so each stage is shippable on its own.
 - [x] **Force password change** for default/temporary passwords
       (`must_change_password` flag + non-dismissable UI gate; additive
       migration flags the seeded admin).
-- [ ] **Error tracking / observability** (structured logs, Sentry-style).
-- [ ] Automated **database backups** + a documented restore drill.
+- [x] **Observability**: structured request logs (`tracing` + `TraceLayer`,
+      `RUST_LOG`-tunable) surfaced in the Render/Fly dashboard.
+- [x] Automated **database backups**: nightly Actions cron → Turso dump → R2
+      `backups/`, manual trigger + restore drill in [docs/backup.md](./backup.md).
 
 ### Phase 2 — Product features
 - [ ] **Reporting & analytics dashboard**: revenue, attendance trends, conversion
