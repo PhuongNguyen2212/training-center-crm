@@ -8,7 +8,7 @@ use crate::util::new_id;
 #[cfg(feature = "desktop")]
 use tauri::State;
 
-type UserRow = (String, String, String, String, String, String, String);
+type UserRow = (String, String, String, String, String, String, i64, String);
 
 // ---- Transport-agnostic logic (shared by Tauri commands and the HTTP API) ----
 
@@ -30,7 +30,7 @@ pub async fn login_impl(
 
     let row: Option<UserRow> = query_opt(
         &db.conn,
-        "SELECT id,name,email,role,status,password_hash,created_at
+        "SELECT id,name,email,role,status,password_hash,must_change_password,created_at
          FROM users WHERE lower(email) = ?1",
         libsql::params![key.clone()],
         |r| {
@@ -41,13 +41,14 @@ pub async fn login_impl(
                 r.get::<String>(3)?,
                 r.get::<String>(4)?,
                 r.get::<String>(5)?,
-                r.get::<String>(6)?,
+                r.get::<i64>(6)?,
+                r.get::<String>(7)?,
             ))
         },
     )
     .await?;
 
-    let (id, name, email_db, role, status, hash, created_at) = match row {
+    let (id, name, email_db, role, status, hash, must_change, created_at) = match row {
         Some(t) => t,
         None => {
             record_failure(guard, &key);
@@ -74,7 +75,7 @@ pub async fn login_impl(
 
     clear_failures(guard, &key);
     let token = new_id();
-    sessions.0.lock().insert(token.clone(), id.clone());
+    sessions.insert(&token, &id);
     let _ = write_audit(&db.conn, &id, "login", "Đăng nhập hệ thống").await;
 
     Ok(LoginResponse {
@@ -85,6 +86,7 @@ pub async fn login_impl(
             email: email_db,
             role,
             status,
+            must_change_password: must_change != 0,
             created_at,
         },
     })
@@ -94,7 +96,7 @@ pub async fn me_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Use
     let user = current_user(db, sessions, token).await?;
     query_opt(
         &db.conn,
-        "SELECT id,name,email,role,status,created_at FROM users WHERE id = ?1",
+        "SELECT id,name,email,role,status,must_change_password,created_at FROM users WHERE id = ?1",
         libsql::params![user.id.clone()],
         |r| {
             Ok(User {
@@ -103,7 +105,8 @@ pub async fn me_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<Use
                 email: r.get(2)?,
                 role: r.get(3)?,
                 status: r.get(4)?,
-                created_at: r.get(5)?,
+                must_change_password: r.get::<i64>(5)? != 0,
+                created_at: r.get(6)?,
             })
         },
     )
@@ -136,7 +139,9 @@ pub async fn change_own_password_impl(
     let new_hash = bcrypt::hash(new_password, 12)?;
     db.conn
         .execute(
-            "UPDATE users SET password_hash = ?2, updated_at = ?3 WHERE id = ?1",
+            // Setting a password of one's own choosing clears the change-me flag.
+            "UPDATE users SET password_hash = ?2, must_change_password = 0, updated_at = ?3
+             WHERE id = ?1",
             libsql::params![user.id.clone(), new_hash, crate::util::now_iso()],
         )
         .await?;
@@ -167,7 +172,7 @@ pub async fn login(
 #[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn logout(token: String, sessions: State<Sessions>) -> AppResult<()> {
-    sessions.0.lock().remove(&token);
+    sessions.remove(&token);
     Ok(())
 }
 

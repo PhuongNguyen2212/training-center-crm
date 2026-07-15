@@ -7,8 +7,62 @@ use std::collections::HashMap;
 pub const MAX_FAILED_ATTEMPTS: u32 = 5;
 pub const LOCKOUT_MS: i64 = 5 * 60_000;
 
-/// token -> user_id. In-memory; cleared when the app restarts.
-pub struct Sessions(pub Mutex<HashMap<String, String>>);
+/// A session ends after 60 minutes of inactivity…
+pub const SESSION_IDLE_MS: i64 = 60 * 60_000;
+/// …or 12 hours after login, whichever comes first (absolute lifetime).
+pub const SESSION_ABSOLUTE_MS: i64 = 12 * 3_600_000;
+
+/// One logged-in session: who it belongs to and when it was created/last used.
+pub struct SessionEntry {
+    pub user_id: String,
+    pub created_ms: i64,
+    pub last_seen_ms: i64,
+}
+
+/// token -> session. In-memory; cleared when the app restarts. All access goes
+/// through the methods below so expiry is enforced in exactly one place.
+pub struct Sessions(pub Mutex<HashMap<String, SessionEntry>>);
+
+impl Sessions {
+    /// Register a fresh session for `user_id` under `token`.
+    pub fn insert(&self, token: &str, user_id: &str) {
+        let now = now_ms();
+        self.0.lock().insert(
+            token.to_string(),
+            SessionEntry {
+                user_id: user_id.to_string(),
+                created_ms: now,
+                last_seen_ms: now,
+            },
+        );
+    }
+
+    /// Drop a session (logout).
+    pub fn remove(&self, token: &str) {
+        self.0.lock().remove(token);
+    }
+
+    /// Resolve a token to its user id, enforcing idle + absolute expiry.
+    /// A live session has its `last_seen_ms` refreshed (sliding idle window);
+    /// an expired one is evicted and `None` is returned.
+    pub fn resolve(&self, token: &str) -> Option<String> {
+        let now = now_ms();
+        let mut map = self.0.lock();
+        let expired = match map.get(token) {
+            None => return None,
+            Some(e) => {
+                now - e.created_ms > SESSION_ABSOLUTE_MS || now - e.last_seen_ms > SESSION_IDLE_MS
+            }
+        };
+        if expired {
+            map.remove(token);
+            return None;
+        }
+        let e = map.get_mut(token).expect("checked above");
+        e.last_seen_ms = now;
+        Some(e.user_id.clone())
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct Attempt {
@@ -27,12 +81,9 @@ pub struct AuthUser {
 /// Resolve a session token to the current user, **re-reading role and status
 /// from the DB** (never trusting anything the frontend passes beyond the token).
 pub async fn current_user(db: &Db, sessions: &Sessions, token: &str) -> AppResult<AuthUser> {
-    let user_id = {
-        let map = sessions.0.lock();
-        map.get(token)
-            .cloned()
-            .ok_or_else(|| AppError::new("Chưa đăng nhập hoặc phiên đã hết hạn."))?
-    };
+    let user_id = sessions
+        .resolve(token)
+        .ok_or_else(|| AppError::new("Chưa đăng nhập hoặc phiên đã hết hạn."))?;
 
     let row = crate::db::query_opt(
         &db.conn,
@@ -259,6 +310,55 @@ mod tests {
         assert!(require_capability(&sales, Capability::StudentEdit).is_ok());
         assert!(require_capability(&sales, Capability::ScheduleView).is_err());
         assert!(require_capability(&sales, Capability::AttendanceView).is_err());
+    }
+
+    #[test]
+    fn session_resolves_and_refreshes_idle_window() {
+        let sessions = Sessions(Mutex::new(HashMap::new()));
+        assert!(sessions.resolve("missing").is_none());
+
+        sessions.insert("tok", "u-1");
+        let seen_before = sessions.0.lock().get("tok").unwrap().last_seen_ms;
+        // Backdate activity a bit (still inside the idle window)…
+        sessions.0.lock().get_mut("tok").unwrap().last_seen_ms -= 10_000;
+        assert_eq!(sessions.resolve("tok").as_deref(), Some("u-1"));
+        // …and a successful resolve slides the window forward again.
+        assert!(sessions.0.lock().get("tok").unwrap().last_seen_ms >= seen_before - 1_000);
+    }
+
+    #[test]
+    fn session_expires_after_idle_timeout() {
+        let sessions = Sessions(Mutex::new(HashMap::new()));
+        sessions.insert("tok", "u-1");
+        sessions.0.lock().get_mut("tok").unwrap().last_seen_ms -= SESSION_IDLE_MS + 60_000;
+        assert!(
+            sessions.resolve("tok").is_none(),
+            "idle-expired session rejected"
+        );
+        assert!(
+            sessions.0.lock().get("tok").is_none(),
+            "expired session evicted"
+        );
+    }
+
+    #[test]
+    fn session_expires_after_absolute_lifetime_despite_activity() {
+        let sessions = Sessions(Mutex::new(HashMap::new()));
+        sessions.insert("tok", "u-1");
+        // Recently active, but created beyond the absolute lifetime.
+        sessions.0.lock().get_mut("tok").unwrap().created_ms -= SESSION_ABSOLUTE_MS + 60_000;
+        assert!(
+            sessions.resolve("tok").is_none(),
+            "absolute-expired session rejected"
+        );
+    }
+
+    #[test]
+    fn logout_removes_session() {
+        let sessions = Sessions(Mutex::new(HashMap::new()));
+        sessions.insert("tok", "u-1");
+        sessions.remove("tok");
+        assert!(sessions.resolve("tok").is_none());
     }
 
     #[test]
