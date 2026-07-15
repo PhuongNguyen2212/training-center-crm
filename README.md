@@ -39,7 +39,8 @@ A compact tour of the engineering, mapped across the software lifecycle:
   [→ Security](#security)
 
 > New here? [CLAUDE.md](./CLAUDE.md) is the full product + architecture spec;
-> [CONTRIBUTING.md](./CONTRIBUTING.md) is the dev workflow.
+> [CONTRIBUTING.md](./CONTRIBUTING.md) is the dev workflow;
+> [docs/roadmap.md](./docs/roadmap.md) is the status, security posture & roadmap.
 
 ---
 
