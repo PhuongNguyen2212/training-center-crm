@@ -30,6 +30,7 @@ use crate::commands::students::{
 use crate::db::Db;
 use crate::error::{AppError, AppResult};
 use crate::models::{ClassInput, PaymentDocInput, SessionInput, StudentInput};
+use crate::ratelimit::RateLimiter;
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
@@ -52,6 +53,32 @@ struct AppState {
     guard: Arc<LoginGuard>,
     r2: Arc<crate::storage::R2>,
     gcal: Arc<crate::gcal::GCal>,
+    limiter: Arc<RateLimiter>,
+}
+
+/// Per-IP rate limiting for every /api route. Render/Fly sit behind a proxy, so
+/// the client address arrives in x-forwarded-for (first hop); fall back to a
+/// shared bucket when absent (local dev).
+async fn rate_limit_mw(
+    State(st): State<AppState>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let ip = req
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "local".to_string());
+    if !st.limiter.check(&ip) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({ "message": "Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút." })),
+        )
+            .into_response();
+    }
+    next.run(req).await
 }
 
 /// Map an AppError to a JSON HTTP error (mirrors how Tauri rejects invoke).
@@ -454,6 +481,10 @@ fn build_router(state: AppState) -> Router {
         .route("/api/users/:id/role", post(users_role))
         .route("/api/users/:id/password", post(users_password))
         .layer(cors_layer())
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit_mw,
+        ))
         .with_state(state)
 }
 
@@ -477,6 +508,7 @@ pub async fn test_router(db: Db) -> Router {
         guard: Arc::new(LoginGuard(Mutex::new(HashMap::new()))),
         r2: Arc::new(r2),
         gcal: Arc::new(gcal),
+        limiter: Arc::new(RateLimiter::default()),
     };
     build_router(state)
 }
@@ -503,6 +535,7 @@ pub async fn serve() {
         guard: Arc::new(LoginGuard(Mutex::new(HashMap::new()))),
         r2: Arc::new(r2),
         gcal: Arc::new(gcal),
+        limiter: Arc::new(RateLimiter::default()),
     };
 
     let app = build_router(state);
