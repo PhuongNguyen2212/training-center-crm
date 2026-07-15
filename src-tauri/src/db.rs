@@ -23,7 +23,31 @@ pub async fn open(url: &str, token: &str) -> AppResult<Db> {
     conn.execute_batch(include_str!("../migrations/0001_init.sql"))
         .await
         .map_err(|e| AppError::new(format!("Áp dụng schema thất bại: {e}")))?;
+    migrate(&conn).await?;
     Ok(Db { conn, _db })
+}
+
+/// Additive migrations for databases created before a column existed. SQLite's
+/// ALTER TABLE ADD COLUMN errors when the column is already there — that error
+/// is the "already migrated" signal and is safely ignored.
+async fn migrate(conn: &Connection) -> AppResult<()> {
+    let added = conn
+        .execute(
+            "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
+            (),
+        )
+        .await
+        .is_ok();
+    if added {
+        // One-time backfill: the seeded admin still carries the published
+        // default password — force a change at next login.
+        conn.execute(
+            "UPDATE users SET must_change_password = 1 WHERE id = 'u-admin'",
+            (),
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 /// Open an **in-memory** libSQL database with the schema applied — for tests

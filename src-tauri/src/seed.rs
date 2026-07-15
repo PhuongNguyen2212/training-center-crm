@@ -54,15 +54,19 @@ pub async fn seed_if_empty(conn: &Connection) -> AppResult<()> {
     ];
     for (id, name, email, pw, role) in users {
         let hash = bcrypt::hash(pw, 12)?;
+        // The admin's default password is published in the README — force a
+        // change at first login. Demo staff accounts stay friction-free.
+        let must_change = (id == "u-admin") as i64;
         conn.execute(
-            "INSERT INTO users (id,name,email,password_hash,role,status,created_at,updated_at)
-             VALUES (?1,?2,?3,?4,?5,'active',?6,?6)",
+            "INSERT INTO users (id,name,email,password_hash,role,status,must_change_password,created_at,updated_at)
+             VALUES (?1,?2,?3,?4,?5,'active',?6,?7,?7)",
             libsql::params![
                 id.to_string(),
                 name.to_string(),
                 email.to_string(),
                 hash,
                 role.to_string(),
+                must_change,
                 now.clone()
             ],
         )

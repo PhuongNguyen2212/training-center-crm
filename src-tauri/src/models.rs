@@ -11,6 +11,9 @@ pub struct User {
     pub email: String,
     pub role: String,
     pub status: String,
+    /// True when the account must set a new password before normal use
+    /// (default/temporary password). The UI blocks on this after login.
+    pub must_change_password: bool,
     pub created_at: String,
 }
 

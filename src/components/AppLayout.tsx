@@ -14,6 +14,7 @@ import { backend, hasRemoteBackend } from "@/lib/backend";
 export default function AppLayout() {
   const user = useAuthStore((s) => s.currentUser)!;
   const logout = useAuthStore((s) => s.logout);
+  const clearMustChange = useAuthStore((s) => s.clearMustChangePassword);
   const navigate = useNavigate();
   const [pwOpen, setPwOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
@@ -41,7 +42,12 @@ export default function AppLayout() {
     }
     backend
       .me(token)
-      .then(() => useDataStore.getState().hydrateFromBackend(token))
+      .then((fresh) => {
+        // Server is the source of truth for role/status/mustChangePassword —
+        // refresh the persisted user so stale flags can't linger.
+        useAuthStore.setState({ currentUser: fresh });
+        return useDataStore.getState().hydrateFromBackend(token);
+      })
       .catch(() => handleLogout());
   }, [handleLogout]);
 
@@ -119,7 +125,13 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
+      {/* Security gate: a default/temporary password must be replaced before
+          normal use — the forced modal cannot be dismissed until then. */}
+      {user.mustChangePassword ? (
+        <ChangePasswordModal forced onClose={clearMustChange} />
+      ) : (
+        pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />
+      )}
 
       {/* Backdrop behind the mobile drawer */}
       {sidebarOpen && (

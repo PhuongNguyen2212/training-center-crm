@@ -9,6 +9,8 @@ use tauri::State;
 
 const ROLES: [&str; 4] = ["admin", "teacher", "salesperson", "finance_staff"];
 
+const USER_COLS: &str = "id,name,email,role,status,must_change_password,created_at";
+
 fn map_user(r: &Row) -> libsql::Result<User> {
     Ok(User {
         id: r.get(0)?,
@@ -16,7 +18,8 @@ fn map_user(r: &Row) -> libsql::Result<User> {
         email: r.get(2)?,
         role: r.get(3)?,
         status: r.get(4)?,
-        created_at: r.get(5)?,
+        must_change_password: r.get::<i64>(5)? != 0,
+        created_at: r.get(6)?,
     })
 }
 
@@ -27,7 +30,7 @@ pub async fn list_users_impl(token: &str, db: &Db, sessions: &Sessions) -> AppRe
     require_capability(&user, Capability::ManageUsers)?;
     query_all(
         &db.conn,
-        "SELECT id,name,email,role,status,created_at FROM users ORDER BY created_at",
+        &format!("SELECT {USER_COLS} FROM users ORDER BY created_at"),
         (),
         map_user,
     )
@@ -67,8 +70,10 @@ pub async fn create_staff_impl(
     let hash = bcrypt::hash(&password, 12)?;
     db.conn
         .execute(
-            "INSERT INTO users (id,name,email,password_hash,role,status,created_at,updated_at)
-             VALUES (?1,?2,?3,?4,?5,'active',?6,?6)",
+            // New accounts get a temporary password chosen by the admin — the
+            // owner must replace it at first login (must_change_password=1).
+            "INSERT INTO users (id,name,email,password_hash,role,status,must_change_password,created_at,updated_at)
+             VALUES (?1,?2,?3,?4,?5,'active',1,?6,?6)",
             libsql::params![
                 id.clone(),
                 name.trim().to_string(),
@@ -88,7 +93,7 @@ pub async fn create_staff_impl(
     .await?;
     query_opt(
         &db.conn,
-        "SELECT id,name,email,role,status,created_at FROM users WHERE id = ?1",
+        &format!("SELECT {USER_COLS} FROM users WHERE id = ?1"),
         libsql::params![id.clone()],
         map_user,
     )
@@ -177,7 +182,8 @@ pub async fn reset_user_password_impl(
     let hash = bcrypt::hash(&password, 12)?;
     db.conn
         .execute(
-            "UPDATE users SET password_hash=?2, updated_at=?3 WHERE id=?1",
+            // An admin-issued password is temporary → owner must change it.
+            "UPDATE users SET password_hash=?2, must_change_password=1, updated_at=?3 WHERE id=?1",
             libsql::params![id.clone(), hash, now_iso()],
         )
         .await?;

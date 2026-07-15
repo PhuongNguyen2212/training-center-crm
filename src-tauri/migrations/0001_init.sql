@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,                 -- bcrypt
   role          TEXT NOT NULL CHECK (role IN ('admin','teacher','salesperson','finance_staff')),
   status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
+  -- 1 = account must set a new password before normal use (fresh/temp/default).
+  must_change_password INTEGER NOT NULL DEFAULT 0,
   created_at    TEXT NOT NULL,
   updated_at    TEXT NOT NULL
 );

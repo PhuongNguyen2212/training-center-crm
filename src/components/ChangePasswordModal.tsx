@@ -8,7 +8,15 @@ import { errorMessage } from "@/lib/error";
 
 // Self-service password change. Requires the current password (verified against
 // the stored hash or legacy demo plaintext) before setting a new hashed one.
-export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+// `forced` blocks dismissal until the password is actually changed — used when
+// the account still carries a default/temporary password (mustChangePassword).
+export function ChangePasswordModal({
+  onClose,
+  forced = false,
+}: {
+  onClose: () => void;
+  forced?: boolean;
+}) {
   const me = useAuthStore((s) => s.currentUser)!;
   const users = useDataStore((s) => s.users);
   const changeOwnPassword = useDataStore((s) => s.changeOwnPassword);
@@ -56,11 +64,17 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     }
   };
 
+  // While forced and not yet done, every dismiss path is a no-op.
+  const requestClose = () => {
+    if (forced && !done) return;
+    onClose();
+  };
+
   return (
     <Modal
       open
       title="Đổi mật khẩu"
-      onClose={onClose}
+      onClose={requestClose}
       footer={
         done ? (
           <button className="btn-primary" onClick={onClose}>
@@ -68,9 +82,11 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           </button>
         ) : (
           <>
-            <button className="btn-outline" onClick={onClose} disabled={busy}>
-              Hủy
-            </button>
+            {!forced && (
+              <button className="btn-outline" onClick={onClose} disabled={busy}>
+                Hủy
+              </button>
+            )}
             <button
               type="submit"
               form="change-pw-form"
@@ -89,6 +105,12 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
         </p>
       ) : (
         <form id="change-pw-form" onSubmit={submit} className="space-y-4">
+          {forced && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Tài khoản đang dùng mật khẩu mặc định/tạm thời. Vì lý do bảo mật,
+              bạn phải đặt mật khẩu mới trước khi tiếp tục.
+            </p>
+          )}
           <div>
             <label className="label">Mật khẩu hiện tại</label>
             <input

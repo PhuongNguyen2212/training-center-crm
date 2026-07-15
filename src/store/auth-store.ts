@@ -33,6 +33,9 @@ interface AuthState {
   logout: () => void;
   touch: () => void;
   isIdleExpired: () => boolean;
+  /// Call after a successful password change: the account no longer carries a
+  /// default/temporary password, so the forced modal can be released.
+  clearMustChangePassword: () => void;
 }
 
 async function checkCredential(user: User, password: string): Promise<boolean> {
@@ -131,6 +134,12 @@ export const useAuthStore = create<AuthState>()(
 
       touch: () => set({ lastActivity: Date.now() }),
       isIdleExpired: () => Date.now() - get().lastActivity > SESSION_IDLE_MS,
+      clearMustChangePassword: () =>
+        set((s) =>
+          s.currentUser
+            ? { currentUser: { ...s.currentUser, mustChangePassword: false } }
+            : s,
+        ),
     }),
     {
       name: "crm-auth",

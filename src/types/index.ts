@@ -25,6 +25,9 @@ export interface User {
   password?: string;
   passwordHash?: string;
   salt?: string;
+  // True when the account must set a new password before normal use
+  // (default/temporary password). The UI forces the change-password modal.
+  mustChangePassword?: boolean;
   createdAt: string;
 }
 
