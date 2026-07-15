@@ -36,7 +36,7 @@ serde_json = "1"
 libsql = { version = "0.6", default-features = false, features = ["remote", "tls"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "macros"] }
 # HTTP API server (web/mobile clients talk to this; reuses the command logic).
-axum = "0.7"
+axum = "0.8"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 # Structured logging for the server (request spans, startup, errors). Logs go
 # to stdout, which Render/Fly surface in their dashboards.
