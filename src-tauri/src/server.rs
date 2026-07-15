@@ -45,6 +45,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
 
 #[derive(Clone)]
 struct AppState {
@@ -423,14 +424,14 @@ fn cors_layer() -> CorsLayer {
             if origins.is_empty() {
                 panic!("ALLOWED_ORIGINS set but no valid origin parsed");
             }
-            eprintln!("CORS giới hạn cho: {list}");
+            tracing::info!(origins = %list, "CORS restricted to allow-list");
             CorsLayer::new()
                 .allow_origin(origins)
                 .allow_methods(Any)
                 .allow_headers(Any)
         }
         None => {
-            eprintln!("CORS mở cho mọi nguồn (dev) — đặt ALLOWED_ORIGINS để siết khi production.");
+            tracing::warn!("CORS open to any origin (dev) — set ALLOWED_ORIGINS in production");
             CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods(Any)
@@ -485,6 +486,8 @@ fn build_router(state: AppState) -> Router {
             state.clone(),
             rate_limit_mw,
         ))
+        // One structured log line per request: method, path, status, latency.
+        .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
@@ -516,12 +519,23 @@ pub async fn test_router(db: Db) -> Router {
 /// Build app state (connect Turso, seed) and run the HTTP server.
 pub async fn serve() {
     dotenvy::dotenv().ok();
+
+    // Structured logs to stdout (Render/Fly surface these). Level via RUST_LOG,
+    // default: info for the app, warn for noisy deps.
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,tower_http=info,hyper=warn".into()),
+        )
+        .init();
+
     let url = crate::secret!("TURSO_DATABASE_URL").expect("thiếu TURSO_DATABASE_URL");
     let token = crate::secret!("TURSO_AUTH_TOKEN").expect("thiếu TURSO_AUTH_TOKEN");
 
     let db = crate::db::open(&url, &token)
         .await
         .expect("kết nối Turso thất bại");
+    tracing::info!("database connected, schema applied");
     crate::seed::seed_if_empty(&db.conn)
         .await
         .expect("seed thất bại");
@@ -545,7 +559,7 @@ pub async fn serve() {
         .and_then(|p| p.parse().ok())
         .unwrap_or(8787);
     let addr = format!("0.0.0.0:{port}");
-    println!("CRM API server đang chạy tại http://{addr}");
+    tracing::info!(%addr, "CRM API server đang chạy");
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("bind cổng thất bại");

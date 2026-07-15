@@ -15,6 +15,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "server"
 path = "src/bin/server.rs"
 
+# Off-site DB backup (dump Turso -> R2): `cargo run --bin backup`.
+[[bin]]
+name = "backup"
+path = "src/bin/backup.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 # Used by build.rs to embed the Google service-account key (base64) at build time.
@@ -32,7 +37,11 @@ libsql = { version = "0.6", default-features = false, features = ["remote", "tls
 tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "macros"] }
 # HTTP API server (web/mobile clients talk to this; reuses the command logic).
 axum = "0.7"
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+# Structured logging for the server (request spans, startup, errors). Logs go
+# to stdout, which Render/Fly surface in their dashboards.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
 bcrypt = "0.15"
 uuid = { version = "1", features = ["v4"] }
