@@ -63,9 +63,9 @@ and [docs/security.md](./security.md).
 ### ⚠️ Known gaps (ranked)
 | Gap | Risk | Notes |
 |---|---|---|
-| Default admin password `admin123` still active | **High** | Must be changed on the live site immediately. |
-| Session tokens in memory, no expiry/rotation | Medium | Lost on restart (re-login); no idle timeout server-side. → JWT/refresh planned. |
-| No general API rate limiting (only login) | Medium | A logged-in token can call endpoints without throttling. |
+| ~~Default admin password `admin123`~~ | ~~High~~ | **Addressed**: admin is now forced to set a new password at next login (`must_change_password`). |
+| ~~Sessions never expire~~ | ~~Medium~~ | **Addressed**: 60-min idle + 12-h absolute expiry. Sessions still reset on restart (re-login) — persistence/JWT remains open. |
+| ~~No general API rate limiting~~ | ~~Medium~~ | **Addressed**: per-IP 300 req/min on all `/api` routes (single-instance, in-memory). |
 | Desktop `.exe` embeds secrets (extractable) | Medium | Architectural; mitigate by routing desktop through the API too. |
 | No 2FA / MFA | Low–Med | Fine for MVP; add for admin later. |
 | No self-serve password reset flow | Low | Admin-reset only today. |
@@ -82,11 +82,14 @@ and [docs/security.md](./security.md).
 
 Phased so each stage is shippable on its own.
 
-### Phase 1 — Security & reliability hardening (next)
-- [ ] Session token **expiry + refresh** (or JWT); persist sessions so restarts
-      don't log everyone out.
-- [ ] **API rate limiting** (e.g. `tower_governor`) across endpoints.
-- [ ] **Force admin password change** on first login; password-strength policy.
+### Phase 1 — Security & reliability hardening (in progress)
+- [x] Session token **expiry**: 60-min idle + 12-h absolute lifetime
+      (`Sessions::resolve`). _Persistence across restarts still open._
+- [x] **API rate limiting**: per-IP fixed window (300 req/min) on all `/api`
+      routes → HTTP 429.
+- [x] **Force password change** for default/temporary passwords
+      (`must_change_password` flag + non-dismissable UI gate; additive
+      migration flags the seeded admin).
 - [ ] **Error tracking / observability** (structured logs, Sentry-style).
 - [ ] Automated **database backups** + a documented restore drill.
 

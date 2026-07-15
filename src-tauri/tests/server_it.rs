@@ -23,6 +23,26 @@ async fn boot() -> String {
 }
 
 #[tokio::test]
+async fn rate_limiter_returns_429_after_budget_exhausted() {
+    let base = boot().await;
+    let client = reqwest::Client::new();
+
+    // All requests share one bucket here (no x-forwarded-for in tests). The
+    // budget is 300/min; the 301st request must be rejected with 429.
+    let mut last = 0;
+    for _ in 0..301 {
+        last = client
+            .get(format!("{base}/api/health"))
+            .send()
+            .await
+            .expect("health request")
+            .status()
+            .as_u16();
+    }
+    assert_eq!(last, 429, "requests beyond the window budget are throttled");
+}
+
+#[tokio::test]
 async fn health_login_and_authorisation_paths() {
     let base = boot().await;
     let client = reqwest::Client::new();

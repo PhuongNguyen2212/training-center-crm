@@ -79,6 +79,45 @@ async fn suspended_user_is_rejected_after_status_change() {
 }
 
 #[tokio::test]
+async fn default_admin_is_forced_to_change_password_and_flag_clears() {
+    let (db, sessions, guard) = setup().await;
+
+    // The seeded admin carries the published default password → flagged.
+    let resp = login_impl("admin@trungtam.vn", "admin123", &db, &sessions, &guard)
+        .await
+        .expect("admin logs in");
+    assert!(
+        resp.user.must_change_password,
+        "seeded admin must be told to change the default password"
+    );
+
+    // Demo staff accounts are not flagged (friction-free demos).
+    let teacher = login_impl("minh.gv@trungtam.vn", "teacher123", &db, &sessions, &guard)
+        .await
+        .expect("teacher logs in");
+    assert!(!teacher.user.must_change_password);
+
+    // Changing the password clears the flag…
+    change_own_password_impl(&resp.token, "admin123", "Bao-mat-2026!", &db, &sessions)
+        .await
+        .expect("password change succeeds");
+    let me = me_impl(&resp.token, &db, &sessions).await.unwrap();
+    assert!(!me.must_change_password, "flag cleared after the change");
+
+    // …the old password stops working, and the new one logs in unflagged.
+    assert!(
+        login_impl("admin@trungtam.vn", "admin123", &db, &sessions, &guard)
+            .await
+            .is_err(),
+        "old default password rejected"
+    );
+    let again = login_impl("admin@trungtam.vn", "Bao-mat-2026!", &db, &sessions, &guard)
+        .await
+        .expect("new password accepted");
+    assert!(!again.user.must_change_password);
+}
+
+#[tokio::test]
 async fn attendance_is_append_only_with_override_on_recorrection() {
     let (db, sessions, guard) = setup().await;
     let token = login(&db, &sessions, &guard, "admin@trungtam.vn", "admin123").await;

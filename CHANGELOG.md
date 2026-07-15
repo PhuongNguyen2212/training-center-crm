@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Session expiry**: sessions now end after 60 minutes of inactivity or 12
+  hours after login (sliding idle window + absolute lifetime), enforced in one
+  place (`Sessions::resolve`).
+- **API rate limiting**: per-IP fixed-window limiter (300 req/min) across every
+  `/api` route; excess requests receive HTTP 429.
+- **Forced password change**: accounts carrying a default or admin-issued
+  temporary password are flagged (`must_change_password`) and the UI blocks on
+  a non-dismissable change-password dialog until a new password is set. The
+  seeded admin is flagged via an additive DB migration; admin password resets
+  and newly created staff accounts set the flag automatically.
+
 ### Added
 - GitHub Actions CI pipeline: frontend job (type-check, lint, test, build) and
   backend job (rustfmt, clippy `-D warnings`, test, release server build), with
