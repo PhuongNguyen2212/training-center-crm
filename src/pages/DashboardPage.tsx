@@ -24,6 +24,12 @@ export default function DashboardPage() {
   const sessions = useDataStore((s) => s.sessions);
   const payments = useDataStore((s) => s.paymentDocs).filter((p) => !p.deletedAt);
   const auditLogs = useDataStore((s) => s.auditLogs);
+  const users = useDataStore((s) => s.users);
+
+  // Actor display name: server-joined userName; the localStorage demo path
+  // lacks it, so fall back to the users list, then the raw id.
+  const actorName = (log: { userName?: string; userId: string }) =>
+    log.userName ?? users.find((u) => u.id === log.userId)?.name ?? log.userId;
 
   const confirmed = students.filter((s) => s.enrollmentStatus === "confirmed");
   const prospects = students.filter((s) => s.enrollmentStatus === "prospect");
@@ -141,6 +147,7 @@ export default function DashboardPage() {
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
                 <th className="py-2 pr-4">Thời gian</th>
+                <th className="py-2 pr-4">Người thực hiện</th>
                 <th className="py-2 pr-4">Hành động</th>
                 <th className="py-2">Chi tiết</th>
               </tr>
@@ -150,6 +157,9 @@ export default function DashboardPage() {
                 <tr key={log.id} className="border-b border-slate-50">
                   <td className="py-2 pr-4 text-slate-500">
                     {formatDateTime(log.createdAt)}
+                  </td>
+                  <td className="py-2 pr-4 font-medium text-slate-700">
+                    {actorName(log)}
                   </td>
                   <td className="py-2 pr-4">
                     <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
@@ -161,7 +171,7 @@ export default function DashboardPage() {
               ))}
               {visibleLogs.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="py-3 text-slate-400">
+                  <td colSpan={4} className="py-3 text-slate-400">
                     Chưa có hoạt động nào.
                   </td>
                 </tr>

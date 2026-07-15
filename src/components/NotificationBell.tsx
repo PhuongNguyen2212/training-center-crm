@@ -92,6 +92,7 @@ export function NotificationBell() {
                   <div className="min-w-0">
                     <p className="text-sm text-slate-700">{l.detail}</p>
                     <p className="mt-0.5 text-xs text-slate-400">
+                      {l.userName ? `${l.userName} · ` : ""}
                       {formatDateTime(l.createdAt)}
                     </p>
                   </div>

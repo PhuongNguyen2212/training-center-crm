@@ -101,6 +101,10 @@ export interface Homework {
 export interface AuditLog {
   id: string;
   userId: string;
+  // Actor's display name (joined server-side). Optional because the
+  // localStorage demo path doesn't populate it — the UI falls back to
+  // resolving userId against the users list.
+  userName?: string;
   action: string;
   detail: string | null;
   createdAt: string;

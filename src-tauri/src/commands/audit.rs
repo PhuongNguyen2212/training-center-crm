@@ -6,13 +6,19 @@ use libsql::Row;
 #[cfg(feature = "desktop")]
 use tauri::State;
 
+// Shared SELECT: join the actor's display name so the UI can show WHO did
+// each activity (falls back to the raw id if the account was ever removed).
+const COLS: &str = "a.id, a.user_id, COALESCE(u.name, a.user_id), a.action, a.detail, a.created_at";
+const FROM: &str = "FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id";
+
 fn map_audit(r: &Row) -> libsql::Result<AuditLog> {
     Ok(AuditLog {
         id: r.get(0)?,
         user_id: r.get(1)?,
-        action: r.get(2)?,
-        detail: r.get(3)?,
-        created_at: r.get(4)?,
+        user_name: r.get(2)?,
+        action: r.get(3)?,
+        detail: r.get(4)?,
+        created_at: r.get(5)?,
     })
 }
 
@@ -28,7 +34,7 @@ pub async fn list_class_notifications_impl(
     current_user(db, sessions, token).await?; // any authenticated user
     query_all(
         &db.conn,
-        "SELECT id,user_id,action,detail,created_at FROM audit_logs WHERE action LIKE 'class.%' ORDER BY created_at DESC LIMIT 50",
+        &format!("SELECT {COLS} {FROM} WHERE a.action LIKE 'class.%' ORDER BY a.created_at DESC LIMIT 50"),
         (),
         map_audit,
     )
@@ -45,7 +51,7 @@ pub async fn list_audit_impl(
     if user.role == "admin" {
         query_all(
             &db.conn,
-            "SELECT id,user_id,action,detail,created_at FROM audit_logs ORDER BY created_at DESC LIMIT 200",
+            &format!("SELECT {COLS} {FROM} ORDER BY a.created_at DESC LIMIT 200"),
             (),
             map_audit,
         )
@@ -53,7 +59,9 @@ pub async fn list_audit_impl(
     } else {
         query_all(
             &db.conn,
-            "SELECT id,user_id,action,detail,created_at FROM audit_logs WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 200",
+            &format!(
+                "SELECT {COLS} {FROM} WHERE a.user_id = ?1 ORDER BY a.created_at DESC LIMIT 200"
+            ),
             libsql::params![user.id.clone()],
             map_audit,
         )

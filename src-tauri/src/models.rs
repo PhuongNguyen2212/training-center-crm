@@ -39,6 +39,9 @@ pub struct Student {
 pub struct AuditLog {
     pub id: String,
     pub user_id: String,
+    /// Display name of the actor (joined from users; falls back to the id if
+    /// the account was removed).
+    pub user_name: String,
     pub action: String,
     pub detail: Option<String>,
     pub created_at: String,
