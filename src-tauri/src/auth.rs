@@ -48,12 +48,9 @@ impl Sessions {
     pub fn resolve(&self, token: &str) -> Option<String> {
         let now = now_ms();
         let mut map = self.0.lock();
-        let expired = match map.get(token) {
-            None => return None,
-            Some(e) => {
-                now - e.created_ms > SESSION_ABSOLUTE_MS || now - e.last_seen_ms > SESSION_IDLE_MS
-            }
-        };
+        let entry = map.get(token)?;
+        let expired = now - entry.created_ms > SESSION_ABSOLUTE_MS
+            || now - entry.last_seen_ms > SESSION_IDLE_MS;
         if expired {
             map.remove(token);
             return None;
