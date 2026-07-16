@@ -9,6 +9,7 @@ import { ROLE_LABELS } from "@/lib/labels";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { NotificationBell } from "@/components/NotificationBell";
+import { Toaster } from "@/components/Toaster";
 import { backend, hasRemoteBackend } from "@/lib/backend";
 
 export default function AppLayout() {
@@ -158,6 +159,9 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Global error/success toasts (write actions report failures here) */}
+      <Toaster />
     </div>
   );
 }

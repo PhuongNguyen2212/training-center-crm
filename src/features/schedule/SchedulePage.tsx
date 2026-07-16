@@ -167,12 +167,13 @@ export default function SchedulePage() {
         if (useApi && editing.googleEventId) {
           await updateEvent(editing.googleEventId, { ...data, classId: editing.classId });
         }
-        updateSession(editing.id, data, user.id);
+        // await so a backend rejection lands in this catch (not swallowed)
+        await updateSession(editing.id, data, user.id);
       } else if (useApi) {
         const eventId = await createEvent({ ...data, classId: null });
-        addSession({ ...data, googleEventId: eventId, classId: null }, user.id);
+        await addSession({ ...data, googleEventId: eventId, classId: null }, user.id);
       } else {
-        addSession({ ...data, googleEventId: null, classId: null }, user.id);
+        await addSession({ ...data, googleEventId: null, classId: null }, user.id);
       }
       setFormOpen(false);
     } catch (e) {
@@ -189,7 +190,7 @@ export default function SchedulePage() {
       if (googleConfigured && isConnected() && session.googleEventId) {
         await deleteEvent(session.googleEventId);
       }
-      deleteSession(session.id, user.id);
+      await deleteSession(session.id, user.id);
       setDeleting(null);
     } catch (e) {
       setError(errorMessage(e));

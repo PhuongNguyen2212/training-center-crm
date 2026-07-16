@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
+import { notify } from "@/store/toast-store";
 import { Badge, EmptyState } from "@/components/ui";
 import { getSessionRoster } from "@/lib/roster";
 import { HOMEWORK_LABELS, formatDate, formatTime } from "@/lib/labels";
@@ -108,7 +109,9 @@ export default function HomeworkTracker() {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() =>
-                            setHomework(s.id, sessionId, "completed", user.id)
+                            notify(
+                              setHomework(s.id, sessionId, "completed", user.id),
+                            )
                           }
                           className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
                             status === "completed"
@@ -120,11 +123,13 @@ export default function HomeworkTracker() {
                         </button>
                         <button
                           onClick={() =>
-                            setHomework(
-                              s.id,
-                              sessionId,
-                              "not_completed",
-                              user.id,
+                            notify(
+                              setHomework(
+                                s.id,
+                                sessionId,
+                                "not_completed",
+                                user.id,
+                              ),
                             )
                           }
                           className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${

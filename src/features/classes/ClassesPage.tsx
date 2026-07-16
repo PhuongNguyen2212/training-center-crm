@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
+import { notify, toastError } from "@/store/toast-store";
 import { can } from "@/lib/permissions";
 import {
   CLASS_STATUS_BADGE,
@@ -169,10 +170,12 @@ export default function ClassesPage() {
                           className="input w-40"
                           value={selected.status}
                           onChange={(e) =>
-                            setClassStatus(
-                              selected.id,
-                              e.target.value as ClassStatus,
-                              user.id,
+                            notify(
+                              setClassStatus(
+                                selected.id,
+                                e.target.value as ClassStatus,
+                                user.id,
+                              ),
                             )
                           }
                         >
@@ -249,7 +252,7 @@ export default function ClassesPage() {
                             className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
                             title="Rút khỏi lớp"
                             onClick={() =>
-                              unenrollStudent(selected.id, s.id, user.id)
+                              notify(unenrollStudent(selected.id, s.id, user.id))
                             }
                           >
                             <UserMinus size={15} />
@@ -301,8 +304,8 @@ export default function ClassesPage() {
           canAssignTeacher={user.role === "admin"}
           onClose={() => setFormOpen(false)}
           onSubmit={(data) => {
-            if (editing) updateClass(editing.id, data, user.id);
-            else addClass(data, user.id);
+            if (editing) notify(updateClass(editing.id, data, user.id));
+            else notify(addClass(data, user.id));
             setFormOpen(false);
           }}
         />
@@ -312,7 +315,9 @@ export default function ClassesPage() {
         <EnrollModal
           enrollable={enrollable}
           onClose={() => setEnrollOpen(false)}
-          onEnroll={(studentId) => enrollStudent(selected.id, studentId, user.id)}
+          onEnroll={(studentId) =>
+            notify(enrollStudent(selected.id, studentId, user.id))
+          }
         />
       )}
 
@@ -329,8 +334,12 @@ export default function ClassesPage() {
               className="btn-danger"
               onClick={async () => {
                 if (deletingClass) {
-                  await deleteClass(deletingClass.id, user.id);
-                  setSelectedId(null);
+                  try {
+                    await deleteClass(deletingClass.id, user.id);
+                    setSelectedId(null);
+                  } catch (e) {
+                    toastError(e);
+                  }
                 }
                 setDeletingClass(null);
               }}

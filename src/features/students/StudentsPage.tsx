@@ -10,6 +10,7 @@ import {
 } from "@/lib/labels";
 import { exportCsv, dateStamp, type CsvColumn } from "@/lib/csv";
 import { errorMessage } from "@/lib/error";
+import { notify } from "@/store/toast-store";
 import { Badge, EmptyState, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import type { EnrollmentStatus, Student } from "@/types";
@@ -264,8 +265,8 @@ export default function StudentsPage() {
             </button>
             <button
               className="btn-danger"
-              onClick={async () => {
-                if (deleting) await softDeleteStudent(deleting.id, user.id);
+              onClick={() => {
+                if (deleting) notify(softDeleteStudent(deleting.id, user.id));
                 setDeleting(null);
               }}
             >

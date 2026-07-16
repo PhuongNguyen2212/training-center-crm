@@ -125,7 +125,7 @@ export interface DataState {
     sessionId: string,
     status: AttendanceStatus,
     actorId: string,
-  ) => void;
+  ) => Promise<void>;
 
   // --- Homework ---
   setHomework: (
@@ -133,7 +133,7 @@ export interface DataState {
     sessionId: string,
     status: HomeworkStatus,
     actorId: string,
-  ) => void;
+  ) => Promise<void>;
 
   // --- Payment docs ---
   // `fileBase64` carries the file content to the backend; it is never stored on
@@ -143,13 +143,13 @@ export interface DataState {
       fileBase64: string;
     },
     actorId: string,
-  ) => void;
+  ) => Promise<void>;
   updatePaymentDoc: (
     id: string,
     data: Partial<PaymentDoc>,
     actorId: string,
   ) => void;
-  softDeletePaymentDoc: (id: string, actorId: string) => void;
+  softDeletePaymentDoc: (id: string, actorId: string) => Promise<void>;
   /** Open a stored payment document for viewing (desktop/Tauri only). */
   viewPaymentDoc: (id: string) => Promise<void>;
 
@@ -161,30 +161,42 @@ export interface DataState {
       teacherId: string | null;
     },
     actorId: string,
-  ) => void;
+  ) => Promise<void>;
   updateClass: (
     id: string,
     data: Partial<Pick<Class, "name" | "courseName" | "teacherId" | "status">>,
     actorId: string,
-  ) => void;
-  enrollStudent: (classId: string, studentId: string, actorId: string) => void;
+  ) => Promise<void>;
+  enrollStudent: (
+    classId: string,
+    studentId: string,
+    actorId: string,
+  ) => Promise<void>;
   unenrollStudent: (
     classId: string,
     studentId: string,
     actorId: string,
-  ) => void;
-  setClassStatus: (id: string, status: ClassStatus, actorId: string) => void;
-  deleteClass: (id: string, actorId: string) => void;
+  ) => Promise<void>;
+  setClassStatus: (
+    id: string,
+    status: ClassStatus,
+    actorId: string,
+  ) => Promise<void>;
+  deleteClass: (id: string, actorId: string) => Promise<void>;
 
   // --- Sessions (Google Calendar) ---
-  addSession: (data: Omit<Session, "id">, actorId: string) => void;
-  updateSession: (id: string, data: Partial<Session>, actorId: string) => void;
-  deleteSession: (id: string, actorId: string) => void;
+  addSession: (data: Omit<Session, "id">, actorId: string) => Promise<void>;
+  updateSession: (
+    id: string,
+    data: Partial<Session>,
+    actorId: string,
+  ) => Promise<void>;
+  deleteSession: (id: string, actorId: string) => Promise<void>;
   // Merge events pulled from Google: upsert by google_event_id, keep local-only.
   upsertSessionsFromGoogle: (
     incoming: Omit<Session, "id">[],
     actorId: string,
-  ) => void;
+  ) => Promise<void>;
 
   resetData: () => void;
 }

@@ -18,6 +18,7 @@ import { Modal } from "@/components/Modal";
 import { verifyPassword } from "@/lib/crypto";
 import { exportCsv, dateStamp, type CsvColumn } from "@/lib/csv";
 import { errorMessage } from "@/lib/error";
+import { notify } from "@/store/toast-store";
 import type { PaymentDoc } from "@/types";
 
 const MAX_FILE_SIZE_MB = 5;
@@ -222,7 +223,7 @@ export default function FinancePage() {
         <UploadForm
           onClose={() => setUploadOpen(false)}
           onSubmit={(data) => {
-            addPaymentDoc({ ...data, uploadedBy: user.id }, user.id);
+            notify(addPaymentDoc({ ...data, uploadedBy: user.id }, user.id));
             setUploadOpen(false);
           }}
         />
@@ -234,7 +235,7 @@ export default function FinancePage() {
           studentName={studentName(deleting.studentId)}
           onClose={() => setDeleting(null)}
           onConfirm={() => {
-            softDeletePaymentDoc(deleting.id, user.id);
+            notify(softDeletePaymentDoc(deleting.id, user.id));
             setDeleting(null);
           }}
         />

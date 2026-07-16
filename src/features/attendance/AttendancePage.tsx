@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, History, Info } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
+import { notify } from "@/store/toast-store";
 import { can } from "@/lib/permissions";
 import {
   ATTENDANCE_BADGE,
@@ -168,11 +169,13 @@ export default function AttendancePage() {
                                 <button
                                   key={status}
                                   onClick={() =>
-                                    markAttendance(
-                                      st.id,
-                                      selected.id,
-                                      status,
-                                      user.id,
+                                    notify(
+                                      markAttendance(
+                                        st.id,
+                                        selected.id,
+                                        status,
+                                        user.id,
+                                      ),
                                     )
                                   }
                                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
