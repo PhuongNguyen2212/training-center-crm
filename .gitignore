@@ -29,3 +29,6 @@ mercurial-snow-*.json
 
 # Internal AI-assistant project memory — local only, not part of the public repo
 CLAUDE.md
+
+# Personal notes / daily reports — local only
+notes/
