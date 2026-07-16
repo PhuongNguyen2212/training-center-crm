@@ -48,7 +48,7 @@ pub async fn list_audit_impl(
 ) -> AppResult<Vec<AuditLog>> {
     let user = current_user(db, sessions, token).await?;
     // Everyone may view their OWN activity; only admin sees everyone's.
-    if user.role == "admin" {
+    if user.is_admin() {
         query_all(
             &db.conn,
             &format!("SELECT {COLS} {FROM} ORDER BY a.created_at DESC LIMIT 200"),

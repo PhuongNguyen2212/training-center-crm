@@ -64,7 +64,7 @@ pub async fn list_students_impl(
 ) -> AppResult<Vec<Student>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::StudentView)?;
-    if user.role == "salesperson" {
+    if user.is_salesperson() {
         query_all(
             &db.conn,
             &format!("SELECT {COLS} FROM students WHERE deleted_at IS NULL AND salesperson_id = ?1 ORDER BY created_at DESC"),
@@ -97,7 +97,7 @@ pub async fn create_student_impl(
 
     let id = new_id();
     let now = now_iso();
-    let salesperson_id = if user.role == "salesperson" {
+    let salesperson_id = if user.is_salesperson() {
         Some(user.id.clone())
     } else {
         None
@@ -145,7 +145,7 @@ pub async fn update_student_impl(
     .await?
     .ok_or_else(|| AppError::new("Không tìm thấy học viên."))?;
 
-    if user.role == "salesperson" && owner.as_deref() != Some(user.id.as_str()) {
+    if user.is_salesperson() && owner.as_deref() != Some(user.id.as_str()) {
         return Err(AppError::new(
             "Bạn chỉ được sửa học viên do mình phụ trách.",
         ));

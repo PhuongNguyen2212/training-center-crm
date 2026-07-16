@@ -87,7 +87,7 @@ pub async fn list_classes_impl(token: &str, db: &Db, sessions: &Sessions) -> App
     let base = "SELECT id,name,course_name,teacher_id,status,created_at,updated_at FROM classes";
 
     // Teacher sees only their own classes (server-side scoping).
-    let rows = if user.role == "teacher" {
+    let rows = if user.is_teacher() {
         query_all(
             &db.conn,
             &format!("{base} WHERE teacher_id = ?1"),
@@ -149,9 +149,9 @@ pub async fn update_class_impl(
     let user = current_user(db, sessions, token).await?;
     // Admin edits any class; a teacher edits only their OWN class and cannot
     // reassign it to someone else (teacher_id forced to stay themselves).
-    let teacher_id = if user.role == "admin" {
+    let teacher_id = if user.is_admin() {
         input.teacher_id.clone()
-    } else if user.role == "teacher" {
+    } else if user.is_teacher() {
         let owner: Option<String> = query_opt(
             &db.conn,
             "SELECT teacher_id FROM classes WHERE id=?1",

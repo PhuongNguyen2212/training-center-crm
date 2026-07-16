@@ -35,7 +35,7 @@ async fn ensure_session_access(
     user: &AuthUser,
     session_id: &str,
 ) -> AppResult<()> {
-    if user.role != "teacher" {
+    if !user.is_teacher() {
         return Ok(());
     }
     let owns = query_opt(
@@ -62,7 +62,7 @@ pub async fn list_attendance_impl(
 ) -> AppResult<Vec<Attendance>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::AttendanceView)?;
-    if user.role == "teacher" {
+    if user.is_teacher() {
         query_all(
             &db.conn,
             "SELECT a.id,a.student_id,a.session_id,a.status,a.marked_by,a.marked_at,a.is_override
@@ -146,7 +146,7 @@ pub async fn list_homework_impl(
 ) -> AppResult<Vec<Homework>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::HomeworkView)?;
-    if user.role == "teacher" {
+    if user.is_teacher() {
         query_all(
             &db.conn,
             "SELECT h.id,h.student_id,h.session_id,h.status,h.recorded_by FROM homework h

@@ -53,7 +53,7 @@ pub async fn list_sessions_impl(
 ) -> AppResult<Vec<Session>> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::ScheduleView)?;
-    if user.role == "teacher" {
+    if user.is_teacher() {
         query_all(
             &db.conn,
             &format!("SELECT {COLS} FROM sessions WHERE teacher_id = ?1 ORDER BY start_time"),
@@ -125,9 +125,9 @@ pub async fn update_session_impl(
     gcal: &GCal,
 ) -> AppResult<Session> {
     let user = current_user(db, sessions, token).await?;
-    let teacher_id = if user.role == "admin" {
+    let teacher_id = if user.is_admin() {
         input.teacher_id.clone()
-    } else if user.role == "teacher" {
+    } else if user.is_teacher() {
         let owner: Option<String> = query_opt(
             &db.conn,
             "SELECT teacher_id FROM sessions WHERE id=?1",
@@ -188,7 +188,7 @@ pub async fn delete_session_impl(
     gcal: &GCal,
 ) -> AppResult<()> {
     let user = current_user(db, sessions, token).await?;
-    if user.role == "teacher" {
+    if user.is_teacher() {
         let owner: Option<String> = query_opt(
             &db.conn,
             "SELECT teacher_id FROM sessions WHERE id=?1",
@@ -200,7 +200,7 @@ pub async fn delete_session_impl(
         if owner.as_deref() != Some(user.id.as_str()) {
             return Err(AppError::new("Bạn chỉ xóa được buổi học của mình."));
         }
-    } else if user.role != "admin" {
+    } else if !user.is_admin() {
         return Err(AppError::new("Bạn không có quyền xóa buổi học."));
     }
     let eid = google_event_id(&db.conn, &id).await?;
