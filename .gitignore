@@ -26,3 +26,6 @@ mercurial-snow-*.json
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Internal AI-assistant project memory — local only, not part of the public repo
+CLAUDE.md

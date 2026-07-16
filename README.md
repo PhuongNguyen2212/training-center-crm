@@ -38,7 +38,7 @@ A compact tour of the engineering, mapped across the software lifecycle:
   re-validation, parameterized SQL, and secrets kept out of git.
   [→ Security](#security)
 
-> New here? [CLAUDE.md](./CLAUDE.md) is the full product + architecture spec;
+> New here? [docs/topology.md](./docs/topology.md) is the architecture overview;
 > [CONTRIBUTING.md](./CONTRIBUTING.md) is the dev workflow;
 > [docs/roadmap.md](./docs/roadmap.md) is the status, security posture & roadmap.
 

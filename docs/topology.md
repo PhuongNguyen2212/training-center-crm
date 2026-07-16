@@ -2,8 +2,9 @@
 
 Tài liệu mô tả **kiến trúc tổng thể** của Training Center CRM: các thành phần,
 luồng dữ liệu, ranh giới tin cậy và bố cục trên đĩa. Bổ sung cho
-[production-backend.md](./production-backend.md) (chi tiết tầng backend) và
-[google-calendar-setup.md](./google-calendar-setup.md) (tích hợp lịch).
+[deploy.md](./deploy.md) (triển khai server + web) và
+[google-calendar-service-account.md](./google-calendar-service-account.md)
+(tích hợp lịch).
 
 ---
 
@@ -141,8 +142,9 @@ App-data dir: `%APPDATA%\vn.trungtam.crm\`
 | OAuth Google | (kế hoạch) OS keychain qua tauri-plugin-store | Không để plaintext trong `.env`/SQLite |
 | Biến `GOOGLE_*` | `.env` khi dev; OS keychain khi production | Không commit |
 
-> **Sắp tới (đang cân nhắc):** mã hóa-khi-nghỉ cho `crm.db` bằng **SQLCipher** để
-> bảo vệ dữ liệu nếu mất máy; xem mục kế hoạch trong production-backend.md.
+> **Ghi chú:** dữ liệu giờ nằm trên Turso Cloud (mã hóa phía nhà cung cấp);
+> kế hoạch SQLCipher cho file local đã không còn cần thiết. Lộ trình bảo mật
+> hiện tại: xem [roadmap.md](./roadmap.md).
 
 ---
 
