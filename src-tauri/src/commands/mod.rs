@@ -9,8 +9,6 @@
 pub mod attendance;
 pub mod audit;
 pub mod auth;
-#[cfg(feature = "desktop")]
-pub mod backup;
 pub mod classes;
 pub mod payments;
 pub mod sessions;

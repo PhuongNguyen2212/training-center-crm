@@ -15,6 +15,8 @@ import { ROLE_LABELS, USER_STATUS_LABELS, formatDate } from "@/lib/labels";
 import { Badge, EmptyState, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import { checkPasswordStrength } from "@/lib/crypto";
+import { errorMessage } from "@/lib/error";
+import { notify } from "@/store/toast-store";
 import type { Role, User } from "@/types";
 
 const ROLES: Role[] = ["admin", "teacher", "salesperson", "finance_staff"];
@@ -160,7 +162,7 @@ export default function StaffPage() {
                                 className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
                                 title="Treo tài khoản"
                                 onClick={() =>
-                                  setStaffStatus(u.id, "suspended", me.id)
+                                  notify(setStaffStatus(u.id, "suspended", me.id))
                                 }
                               >
                                 <ShieldBan size={15} />
@@ -170,7 +172,7 @@ export default function StaffPage() {
                                 className="btn-ghost p-1.5 text-emerald-600 hover:bg-emerald-50"
                                 title="Kích hoạt lại"
                                 onClick={() =>
-                                  setStaffStatus(u.id, "active", me.id)
+                                  notify(setStaffStatus(u.id, "active", me.id))
                                 }
                               >
                                 <ShieldCheck size={15} />
@@ -204,7 +206,7 @@ export default function StaffPage() {
           user={editing}
           onClose={() => setEditing(null)}
           onSubmit={(role) => {
-            updateStaff(editing.id, { role }, me.id);
+            notify(updateStaff(editing.id, { role }, me.id));
             setEditing(null);
           }}
         />
@@ -385,8 +387,13 @@ function ResetPassword({
       return;
     }
     setBusy(true);
-    await onSubmit(pw);
-    setBusy(false);
+    try {
+      await onSubmit(pw);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -411,8 +418,8 @@ function ResetPassword({
   );
 }
 
-// Database is hosted on Turso Cloud (automatic backups); payment files live on
-// Cloudflare R2. No manual local backup/restore is needed anymore.
+// Informational card: backups are fully automated (nightly GitHub Actions cron
+// dumps Turso to R2 — see docs/backup.md). Nothing to click here by design.
 function BackupRestore() {
   return (
     <div className="card mt-6 p-5">
@@ -420,9 +427,10 @@ function BackupRestore() {
         <DatabaseBackup size={18} /> Sao lưu dữ liệu
       </h2>
       <p className="mt-2 text-sm text-slate-500">
-        Cơ sở dữ liệu chạy trên <strong>Turso Cloud</strong> và được{" "}
-        <strong>tự động sao lưu</strong> (khôi phục theo thời điểm). Bạn không cần
-        sao lưu thủ công. Tệp chứng từ được lưu an toàn trên Cloudflare R2.
+        Dữ liệu được <strong>tự động sao lưu mỗi đêm (2:00)</strong> lên kho lưu
+        trữ riêng (Cloudflare R2), tách khỏi máy chủ dữ liệu chính. Không cần
+        thao tác thủ công. Quy trình khôi phục: xem <code>docs/backup.md</code>{" "}
+        trong mã nguồn.
       </p>
     </div>
   );

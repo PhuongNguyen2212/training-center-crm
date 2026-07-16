@@ -165,9 +165,6 @@ pub fn run() {
             commands::payments::create_payment_doc,
             commands::payments::read_payment_doc,
             commands::payments::soft_delete_payment_doc,
-            commands::backup::backup_database,
-            commands::backup::restore_database,
-            commands::backup::list_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

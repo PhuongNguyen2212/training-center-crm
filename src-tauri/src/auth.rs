@@ -70,9 +70,31 @@ pub struct Attempt {
 /// email(lowercased) -> failed-login state, for brute-force lockout.
 pub struct LoginGuard(pub Mutex<HashMap<String, Attempt>>);
 
+/// Role names as stored in `users.role`. Compare against these constants, not
+/// string literals — a typo in a literal silently mis-grants permissions,
+/// while a typo here fails to compile.
+pub mod role {
+    pub const ADMIN: &str = "admin";
+    pub const TEACHER: &str = "teacher";
+    pub const SALESPERSON: &str = "salesperson";
+    pub const FINANCE: &str = "finance_staff";
+}
+
 pub struct AuthUser {
     pub id: String,
     pub role: String,
+}
+
+impl AuthUser {
+    pub fn is_admin(&self) -> bool {
+        self.role == role::ADMIN
+    }
+    pub fn is_teacher(&self) -> bool {
+        self.role == role::TEACHER
+    }
+    pub fn is_salesperson(&self) -> bool {
+        self.role == role::SALESPERSON
+    }
 }
 
 /// Resolve a session token to the current user, **re-reading role and status
@@ -125,8 +147,6 @@ pub enum Capability {
     PaymentUpload,
     PaymentDelete,
     ManageUsers,
-    DbBackup,
-    DbRestore,
 }
 
 impl Capability {
@@ -135,20 +155,20 @@ impl Capability {
     /// (teacher's own classes, salesperson's own referrals) is enforced
     /// separately in each query — this is only the coarse gate.
     fn allowed_roles(self) -> &'static [&'static str] {
+        use role::{ADMIN, FINANCE, SALESPERSON, TEACHER};
         use Capability::*;
         match self {
-            ScheduleView => &["admin", "teacher"],
-            ScheduleEdit => &["admin"],
-            StudentView => &["admin", "teacher", "salesperson", "finance_staff"],
-            StudentEdit => &["admin", "salesperson"],
-            StudentDelete => &["admin"],
-            AttendanceView | AttendanceMark => &["admin", "teacher"],
-            HomeworkView | HomeworkRecord => &["admin", "teacher"],
-            PaymentView => &["admin", "salesperson", "finance_staff"],
-            PaymentUpload => &["admin", "finance_staff"],
-            PaymentDelete => &["admin"],
-            ManageUsers => &["admin"],
-            DbBackup | DbRestore => &["admin"],
+            ScheduleView => &[ADMIN, TEACHER],
+            ScheduleEdit => &[ADMIN],
+            StudentView => &[ADMIN, TEACHER, SALESPERSON, FINANCE],
+            StudentEdit => &[ADMIN, SALESPERSON],
+            StudentDelete => &[ADMIN],
+            AttendanceView | AttendanceMark => &[ADMIN, TEACHER],
+            HomeworkView | HomeworkRecord => &[ADMIN, TEACHER],
+            PaymentView => &[ADMIN, SALESPERSON, FINANCE],
+            PaymentUpload => &[ADMIN, FINANCE],
+            PaymentDelete => &[ADMIN],
+            ManageUsers => &[ADMIN],
         }
     }
 }
@@ -273,8 +293,6 @@ mod tests {
             PaymentUpload,
             PaymentDelete,
             ManageUsers,
-            DbBackup,
-            DbRestore,
         ] {
             assert!(require_capability(&admin, cap).is_ok());
         }
