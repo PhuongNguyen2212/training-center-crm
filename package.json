@@ -17,7 +17,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.9.1",
+    "@hookform/resolvers": "^5.5.7",
     "@tauri-apps/api": "^2.11.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
