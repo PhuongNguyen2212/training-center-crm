@@ -68,27 +68,51 @@ and audit logging live in exactly one place.
 
 ## Run it locally
 
+### 1. Install dependencies
+
 ```bash
 npm install
 ```
 
-### Web + backend (recommended for development)
+### 2. Create your `.env` (required — the server won't start without it)
 
 ```bash
-# Terminal 1 — backend API (reads secrets from .env, serves on :8787)
+cp .env.example .env      # Windows: copy .env.example .env
+```
+
+Fill in at least the six backend secrets — `TURSO_DATABASE_URL`,
+`TURSO_AUTH_TOKEN`, `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY` — see [Configuration](#configuration) for what each does
+and [docs/hosting-setup.md](./docs/hosting-setup.md) for how to obtain them.
+Missing any of them makes the server exit with `thiếu TURSO_DATABASE_URL` (or
+the equivalent name).
+
+### 3. Run web + backend (recommended for development)
+
+Two terminals:
+
+```bash
+# Terminal 1 — backend API (reads .env, serves on :8787)
 cd src-tauri
 cargo run --bin server --no-default-features
 
 # Terminal 2 — web frontend
-npm run dev          # http://localhost:5173
+npm run dev          # http://localhost:1420
 ```
 
-The web app talks to the backend because `.env` sets
-`VITE_API_URL=http://localhost:8787`. Health check: `curl http://localhost:8787/api/health` → `ok`.
+Open <http://localhost:1420> and log in with a demo account below. The web app
+reaches the backend because `.env` sets `VITE_API_URL=http://localhost:8787`;
+leave that variable empty and the UI falls back to a standalone localStorage demo.
 
-### Desktop app (Tauri)
+Health check: `curl http://localhost:8787/api/health` → `ok`.
 
-Requires the Rust toolchain (https://rustup.rs):
+> First backend build compiles the whole Rust dependency tree and takes a few
+> minutes; later runs are seconds.
+
+### Alternative: desktop app (Tauri)
+
+Same data, native window instead of a browser. Requires the Rust toolchain
+(https://rustup.rs) and reads the same `.env`:
 
 ```bash
 npm run tauri:dev    # desktop window
