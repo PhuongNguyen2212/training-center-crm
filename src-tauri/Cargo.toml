@@ -33,7 +33,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Data layer — Turso (libSQL) over HTTP, online-only. `remote`+`tls` only (no
 # default `core` feature) so it builds pure-Rust, no bindgen/LLVM.
-libsql = { version = "0.6", default-features = false, features = ["remote", "tls"] }
+libsql = { version = "0.9", default-features = false, features = ["remote", "tls"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "macros"] }
 # HTTP API server (web/mobile clients talk to this; reuses the command logic).
 axum = "0.7"
