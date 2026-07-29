@@ -23,7 +23,7 @@ path = "src/bin/backup.rs"
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 # Used by build.rs to embed the Google service-account key (base64) at build time.
-base64 = "0.22"
+base64 = "0.23"
 
 [dependencies]
 # Tauri (desktop GUI) is optional so the `server` binary builds without it
@@ -47,7 +47,7 @@ bcrypt = "0.19"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["clock"] }
 parking_lot = "0.12"
-base64 = "0.22"
+base64 = "0.23"
 # Cloudflare R2 (S3-compatible) for payment document files — rustls (no OpenSSL/LLVM).
 rust-s3 = { version = "0.37", default-features = false, features = ["tokio-rustls-tls"] }
 # Google Calendar via service account (JWT bearer auth + REST), rustls.
