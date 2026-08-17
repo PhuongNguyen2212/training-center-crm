@@ -226,7 +226,15 @@ pub async fn mark_attendance(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Attendance> {
-    mark_attendance_impl(&token, student_id, session_id, status, &db.fresh(), &sessions).await
+    mark_attendance_impl(
+        &token,
+        student_id,
+        session_id,
+        status,
+        &db.fresh(),
+        &sessions,
+    )
+    .await
 }
 
 #[cfg(feature = "desktop")]
@@ -249,5 +257,13 @@ pub async fn set_homework(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Homework> {
-    set_homework_impl(&token, student_id, session_id, status, &db.fresh(), &sessions).await
+    set_homework_impl(
+        &token,
+        student_id,
+        session_id,
+        status,
+        &db.fresh(),
+        &sessions,
+    )
+    .await
 }

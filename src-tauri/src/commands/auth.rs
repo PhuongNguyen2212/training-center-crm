@@ -185,7 +185,14 @@ pub async fn change_own_password(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    change_own_password_impl(&token, &current_password, &new_password, &db.fresh(), &sessions).await
+    change_own_password_impl(
+        &token,
+        &current_password,
+        &new_password,
+        &db.fresh(),
+        &sessions,
+    )
+    .await
 }
 
 #[cfg(feature = "desktop")]
