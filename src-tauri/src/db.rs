@@ -1,30 +1,69 @@
 use crate::error::{AppError, AppResult};
 use libsql::{Builder, Connection, Database, Row};
+use std::sync::Arc;
 
-/// Managed Tauri state wrapping the libSQL (Turso) connection. libSQL handles
-/// its own concurrency, so no Mutex is needed. `_db` is held to keep the
-/// underlying remote database alive for the app's lifetime.
+/// Managed state wrapping the libSQL (Turso) database.
+///
+/// A *remote* libSQL `Connection` is not a plain handle: it is a stateful
+/// Hrana-over-HTTP stream, where every response hands back a new baton and
+/// invalidates the previous one. Sharing a single connection across concurrent
+/// requests therefore races and fails with `generation mismatch: N != M`, and
+/// one left idle long enough gets reaped server-side. So request handlers call
+/// [`Db::fresh`] to get a stream of their own; dropping it makes libSQL close
+/// that stream on Turso automatically.
+#[derive(Clone)]
 pub struct Db {
     pub conn: Connection,
-    _db: Database,
+    db: Arc<Database>,
+    /// Remote streams are per-request. A local `:memory:` database is the exact
+    /// opposite — each `connect()` opens a *separate, empty* database — so the
+    /// test path has to keep reusing the one connection it opened.
+    remote: bool,
+}
+
+impl Db {
+    /// A handle for one request, carrying its own Hrana stream.
+    pub fn fresh(&self) -> Db {
+        if !self.remote {
+            return self.clone();
+        }
+        match self.db.connect() {
+            Ok(conn) => Db {
+                conn,
+                db: Arc::clone(&self.db),
+                remote: true,
+            },
+            Err(e) => {
+                // The remote backend only builds a struct here, so this is
+                // unreachable in practice; degrade instead of failing the
+                // request, but make the log loud if it ever does happen.
+                tracing::error!("không mở được stream Turso mới: {e}");
+                self.clone()
+            }
+        }
+    }
 }
 
 /// Open a remote Turso connection (online-only) and apply the schema. The
 /// schema uses `IF NOT EXISTS`, so applying it on every startup is safe; on the
 /// shared Turso DB it only matters on first run.
 pub async fn open(url: &str, token: &str) -> AppResult<Db> {
-    let _db = Builder::new_remote(url.to_string(), token.to_string())
+    let database = Builder::new_remote(url.to_string(), token.to_string())
         .build()
         .await
         .map_err(|e| AppError::new(format!("Không kết nối được Turso: {e}")))?;
-    let conn = _db
+    let conn = database
         .connect()
         .map_err(|e| AppError::new(format!("Không mở được kết nối Turso: {e}")))?;
     conn.execute_batch(include_str!("../migrations/0001_init.sql"))
         .await
         .map_err(|e| AppError::new(format!("Áp dụng schema thất bại: {e}")))?;
     migrate(&conn).await?;
-    Ok(Db { conn, _db })
+    Ok(Db {
+        conn,
+        db: Arc::new(database),
+        remote: true,
+    })
 }
 
 /// Additive migrations for databases created before a column existed. SQLite's
@@ -55,17 +94,23 @@ async fn migrate(conn: &Connection) -> AppResult<()> {
 /// is excluded from the default pure-Rust/remote build.
 #[cfg(feature = "db-tests")]
 pub async fn open_memory() -> AppResult<Db> {
-    let _db = Builder::new_local(":memory:")
+    let database = Builder::new_local(":memory:")
         .build()
         .await
         .map_err(|e| AppError::new(format!("Không mở được DB in-memory: {e}")))?;
-    let conn = _db
+    let conn = database
         .connect()
         .map_err(|e| AppError::new(format!("Không mở được kết nối: {e}")))?;
     conn.execute_batch(include_str!("../migrations/0001_init.sql"))
         .await
         .map_err(|e| AppError::new(format!("Áp dụng schema thất bại: {e}")))?;
-    Ok(Db { conn, _db })
+    // `remote: false` — a second `connect()` to `:memory:` would be a brand new
+    // empty database, so `fresh()` must hand back this same connection.
+    Ok(Db {
+        conn,
+        db: Arc::new(database),
+        remote: false,
+    })
 }
 
 /// Query and map the first row, or `None` if there are no rows.

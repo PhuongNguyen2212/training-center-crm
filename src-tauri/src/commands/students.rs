@@ -276,7 +276,7 @@ pub async fn list_students(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<Student>> {
-    list_students_impl(&token, &db, &sessions).await
+    list_students_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -287,7 +287,7 @@ pub async fn create_student(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Student> {
-    create_student_impl(&token, input, &db, &sessions).await
+    create_student_impl(&token, input, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -299,7 +299,7 @@ pub async fn update_student(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Student> {
-    update_student_impl(&token, &id, input, &db, &sessions).await
+    update_student_impl(&token, &id, input, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -310,5 +310,5 @@ pub async fn soft_delete_student(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    soft_delete_student_impl(&token, &id, &db, &sessions).await
+    soft_delete_student_impl(&token, &id, &db.fresh(), &sessions).await
 }
