@@ -166,7 +166,7 @@ pub async fn login(
     sessions: State<'_, Sessions>,
     guard: State<'_, LoginGuard>,
 ) -> AppResult<LoginResponse> {
-    login_impl(&email, &password, &db, &sessions, &guard).await
+    login_impl(&email, &password, &db.fresh(), &sessions, &guard).await
 }
 
 #[cfg(feature = "desktop")]
@@ -185,7 +185,7 @@ pub async fn change_own_password(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    change_own_password_impl(&token, &current_password, &new_password, &db, &sessions).await
+    change_own_password_impl(&token, &current_password, &new_password, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -195,5 +195,5 @@ pub async fn me(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<User> {
-    me_impl(&token, &db, &sessions).await
+    me_impl(&token, &db.fresh(), &sessions).await
 }

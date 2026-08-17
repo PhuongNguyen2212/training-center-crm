@@ -319,7 +319,7 @@ pub async fn list_classes(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<Class>> {
-    list_classes_impl(&token, &db, &sessions).await
+    list_classes_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -330,7 +330,7 @@ pub async fn create_class(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Class> {
-    create_class_impl(&token, input, &db, &sessions).await
+    create_class_impl(&token, input, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -342,7 +342,7 @@ pub async fn update_class(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Class> {
-    update_class_impl(&token, id, input, &db, &sessions).await
+    update_class_impl(&token, id, input, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -354,7 +354,7 @@ pub async fn set_class_status(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    set_class_status_impl(&token, id, status, &db, &sessions).await
+    set_class_status_impl(&token, id, status, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -366,7 +366,7 @@ pub async fn enroll_student(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    enroll_student_impl(&token, class_id, student_id, &db, &sessions).await
+    enroll_student_impl(&token, class_id, student_id, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -378,7 +378,7 @@ pub async fn unenroll_student(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    unenroll_student_impl(&token, class_id, student_id, &db, &sessions).await
+    unenroll_student_impl(&token, class_id, student_id, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -389,5 +389,5 @@ pub async fn delete_class(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    delete_class_impl(&token, id, &db, &sessions).await
+    delete_class_impl(&token, id, &db.fresh(), &sessions).await
 }

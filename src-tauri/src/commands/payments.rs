@@ -158,7 +158,7 @@ pub async fn list_payment_docs(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<PaymentDoc>> {
-    list_payment_docs_impl(&token, &db, &sessions).await
+    list_payment_docs_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -170,7 +170,7 @@ pub async fn create_payment_doc(
     sessions: State<'_, Sessions>,
     r2: State<'_, R2>,
 ) -> AppResult<PaymentDoc> {
-    create_payment_doc_impl(&token, input, &db, &sessions, &r2).await
+    create_payment_doc_impl(&token, input, &db.fresh(), &sessions, &r2).await
 }
 
 #[cfg(feature = "desktop")]
@@ -182,7 +182,7 @@ pub async fn read_payment_doc(
     sessions: State<'_, Sessions>,
     r2: State<'_, R2>,
 ) -> AppResult<PaymentDocFile> {
-    read_payment_doc_impl(&token, id, &db, &sessions, &r2).await
+    read_payment_doc_impl(&token, id, &db.fresh(), &sessions, &r2).await
 }
 
 #[cfg(feature = "desktop")]
@@ -193,5 +193,5 @@ pub async fn soft_delete_payment_doc(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    soft_delete_payment_doc_impl(&token, id, &db, &sessions).await
+    soft_delete_payment_doc_impl(&token, id, &db.fresh(), &sessions).await
 }

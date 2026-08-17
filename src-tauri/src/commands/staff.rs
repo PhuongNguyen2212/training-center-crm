@@ -206,7 +206,7 @@ pub async fn list_users(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<User>> {
-    list_users_impl(&token, &db, &sessions).await
+    list_users_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -220,7 +220,7 @@ pub async fn create_staff(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<User> {
-    create_staff_impl(&token, name, email, role, password, &db, &sessions).await
+    create_staff_impl(&token, name, email, role, password, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -232,7 +232,7 @@ pub async fn set_user_status(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    set_user_status_impl(&token, id, status, &db, &sessions).await
+    set_user_status_impl(&token, id, status, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -244,7 +244,7 @@ pub async fn update_user_role(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    update_user_role_impl(&token, id, role, &db, &sessions).await
+    update_user_role_impl(&token, id, role, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -256,5 +256,5 @@ pub async fn reset_user_password(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<()> {
-    reset_user_password_impl(&token, id, password, &db, &sessions).await
+    reset_user_password_impl(&token, id, password, &db.fresh(), &sessions).await
 }

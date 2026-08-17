@@ -285,7 +285,7 @@ pub async fn list_sessions(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<Session>> {
-    list_sessions_impl(&token, &db, &sessions).await
+    list_sessions_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -297,7 +297,7 @@ pub async fn create_session(
     sessions: State<'_, Sessions>,
     gcal: State<'_, GCal>,
 ) -> AppResult<Session> {
-    create_session_impl(&token, input, &db, &sessions, &gcal).await
+    create_session_impl(&token, input, &db.fresh(), &sessions, &gcal).await
 }
 
 #[cfg(feature = "desktop")]
@@ -310,7 +310,7 @@ pub async fn update_session(
     sessions: State<'_, Sessions>,
     gcal: State<'_, GCal>,
 ) -> AppResult<Session> {
-    update_session_impl(&token, id, input, &db, &sessions, &gcal).await
+    update_session_impl(&token, id, input, &db.fresh(), &sessions, &gcal).await
 }
 
 #[cfg(feature = "desktop")]
@@ -322,7 +322,7 @@ pub async fn delete_session(
     sessions: State<'_, Sessions>,
     gcal: State<'_, GCal>,
 ) -> AppResult<()> {
-    delete_session_impl(&token, id, &db, &sessions, &gcal).await
+    delete_session_impl(&token, id, &db.fresh(), &sessions, &gcal).await
 }
 
 #[cfg(feature = "desktop")]
@@ -333,5 +333,5 @@ pub async fn upsert_sessions_from_google(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<Session>> {
-    upsert_sessions_from_google_impl(&token, incoming, &db, &sessions).await
+    upsert_sessions_from_google_impl(&token, incoming, &db.fresh(), &sessions).await
 }

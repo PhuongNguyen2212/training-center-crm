@@ -120,14 +120,22 @@ struct LoginBody {
 }
 
 async fn login(State(st): State<AppState>, Json(body): Json<LoginBody>) -> Response {
-    match login_impl(&body.email, &body.password, &st.db, &st.sessions, &st.guard).await {
+    match login_impl(
+        &body.email,
+        &body.password,
+        &st.db.fresh(),
+        &st.sessions,
+        &st.guard,
+    )
+    .await
+    {
         Ok(resp) => Json(resp).into_response(),
         Err(e) => err(e),
     }
 }
 
 async fn me(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(me_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(me_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 
 #[derive(Deserialize)]
@@ -145,7 +153,7 @@ async fn change_password(
         &bearer(&headers),
         &b.current_password,
         &b.new_password,
-        &st.db,
+        &st.db.fresh(),
         &st.sessions,
     )
     .await)
@@ -153,14 +161,14 @@ async fn change_password(
 
 // ---- Students ----
 async fn students_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_students_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_students_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn students_create(
     State(st): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<StudentInput>,
 ) -> Response {
-    out(create_student_impl(&bearer(&headers), body, &st.db, &st.sessions).await)
+    out(create_student_impl(&bearer(&headers), body, &st.db.fresh(), &st.sessions).await)
 }
 async fn students_update(
     State(st): State<AppState>,
@@ -168,26 +176,26 @@ async fn students_update(
     Path(id): Path<String>,
     Json(body): Json<StudentInput>,
 ) -> Response {
-    out(update_student_impl(&bearer(&headers), &id, body, &st.db, &st.sessions).await)
+    out(update_student_impl(&bearer(&headers), &id, body, &st.db.fresh(), &st.sessions).await)
 }
 async fn students_delete(
     State(st): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    out(soft_delete_student_impl(&bearer(&headers), &id, &st.db, &st.sessions).await)
+    out(soft_delete_student_impl(&bearer(&headers), &id, &st.db.fresh(), &st.sessions).await)
 }
 
 // ---- Classes ----
 async fn classes_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_classes_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_classes_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn classes_create(
     State(st): State<AppState>,
     headers: HeaderMap,
     Json(b): Json<ClassInput>,
 ) -> Response {
-    out(create_class_impl(&bearer(&headers), b, &st.db, &st.sessions).await)
+    out(create_class_impl(&bearer(&headers), b, &st.db.fresh(), &st.sessions).await)
 }
 async fn classes_update(
     State(st): State<AppState>,
@@ -195,14 +203,14 @@ async fn classes_update(
     Path(id): Path<String>,
     Json(b): Json<ClassInput>,
 ) -> Response {
-    out(update_class_impl(&bearer(&headers), id, b, &st.db, &st.sessions).await)
+    out(update_class_impl(&bearer(&headers), id, b, &st.db.fresh(), &st.sessions).await)
 }
 async fn classes_delete(
     State(st): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    out(delete_class_impl(&bearer(&headers), id, &st.db, &st.sessions).await)
+    out(delete_class_impl(&bearer(&headers), id, &st.db.fresh(), &st.sessions).await)
 }
 
 #[derive(serde::Deserialize)]
@@ -215,7 +223,14 @@ async fn classes_status(
     Path(id): Path<String>,
     Json(b): Json<StatusBody>,
 ) -> Response {
-    out(set_class_status_impl(&bearer(&headers), id, b.status, &st.db, &st.sessions).await)
+    out(set_class_status_impl(
+        &bearer(&headers),
+        id,
+        b.status,
+        &st.db.fresh(),
+        &st.sessions,
+    )
+    .await)
 }
 
 #[derive(serde::Deserialize)]
@@ -229,7 +244,14 @@ async fn classes_enroll(
     Path(id): Path<String>,
     Json(b): Json<EnrollBody>,
 ) -> Response {
-    out(enroll_student_impl(&bearer(&headers), id, b.student_id, &st.db, &st.sessions).await)
+    out(enroll_student_impl(
+        &bearer(&headers),
+        id,
+        b.student_id,
+        &st.db.fresh(),
+        &st.sessions,
+    )
+    .await)
 }
 async fn classes_unenroll(
     State(st): State<AppState>,
@@ -237,27 +259,34 @@ async fn classes_unenroll(
     Path(id): Path<String>,
     Json(b): Json<EnrollBody>,
 ) -> Response {
-    out(unenroll_student_impl(&bearer(&headers), id, b.student_id, &st.db, &st.sessions).await)
+    out(unenroll_student_impl(
+        &bearer(&headers),
+        id,
+        b.student_id,
+        &st.db.fresh(),
+        &st.sessions,
+    )
+    .await)
 }
 
 // ---- Audit + notifications ----
 async fn audit_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_audit_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_audit_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn notifications_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_class_notifications_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_class_notifications_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 
 // ---- Sessions (buổi học) ----
 async fn sessions_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_sessions_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_sessions_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn sessions_create(
     State(st): State<AppState>,
     headers: HeaderMap,
     Json(b): Json<SessionInput>,
 ) -> Response {
-    out(create_session_impl(&bearer(&headers), b, &st.db, &st.sessions, &st.gcal).await)
+    out(create_session_impl(&bearer(&headers), b, &st.db.fresh(), &st.sessions, &st.gcal).await)
 }
 async fn sessions_update(
     State(st): State<AppState>,
@@ -265,14 +294,29 @@ async fn sessions_update(
     Path(id): Path<String>,
     Json(b): Json<SessionInput>,
 ) -> Response {
-    out(update_session_impl(&bearer(&headers), id, b, &st.db, &st.sessions, &st.gcal).await)
+    out(update_session_impl(
+        &bearer(&headers),
+        id,
+        b,
+        &st.db.fresh(),
+        &st.sessions,
+        &st.gcal,
+    )
+    .await)
 }
 async fn sessions_delete(
     State(st): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    out(delete_session_impl(&bearer(&headers), id, &st.db, &st.sessions, &st.gcal).await)
+    out(delete_session_impl(
+        &bearer(&headers),
+        id,
+        &st.db.fresh(),
+        &st.sessions,
+        &st.gcal,
+    )
+    .await)
 }
 
 // ---- Attendance + homework ----
@@ -284,7 +328,7 @@ struct MarkBody {
     status: String,
 }
 async fn attendance_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_attendance_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_attendance_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn attendance_mark(
     State(st): State<AppState>,
@@ -296,13 +340,13 @@ async fn attendance_mark(
         b.student_id,
         b.session_id,
         b.status,
-        &st.db,
+        &st.db.fresh(),
         &st.sessions,
     )
     .await)
 }
 async fn homework_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_homework_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_homework_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn homework_set(
     State(st): State<AppState>,
@@ -314,7 +358,7 @@ async fn homework_set(
         b.student_id,
         b.session_id,
         b.status,
-        &st.db,
+        &st.db.fresh(),
         &st.sessions,
     )
     .await)
@@ -322,28 +366,28 @@ async fn homework_set(
 
 // ---- Payments (chứng từ) ----
 async fn payments_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_payment_docs_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_payment_docs_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn payments_create(
     State(st): State<AppState>,
     headers: HeaderMap,
     Json(b): Json<PaymentDocInput>,
 ) -> Response {
-    out(create_payment_doc_impl(&bearer(&headers), b, &st.db, &st.sessions, &st.r2).await)
+    out(create_payment_doc_impl(&bearer(&headers), b, &st.db.fresh(), &st.sessions, &st.r2).await)
 }
 async fn payments_read(
     State(st): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    out(read_payment_doc_impl(&bearer(&headers), id, &st.db, &st.sessions, &st.r2).await)
+    out(read_payment_doc_impl(&bearer(&headers), id, &st.db.fresh(), &st.sessions, &st.r2).await)
 }
 async fn payments_delete(
     State(st): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    out(soft_delete_payment_doc_impl(&bearer(&headers), id, &st.db, &st.sessions).await)
+    out(soft_delete_payment_doc_impl(&bearer(&headers), id, &st.db.fresh(), &st.sessions).await)
 }
 
 // ---- Staff / users ----
@@ -355,7 +399,7 @@ struct CreateStaffBody {
     password: String,
 }
 async fn users_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_users_impl(&bearer(&headers), &st.db, &st.sessions).await)
+    out(list_users_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 async fn users_create(
     State(st): State<AppState>,
@@ -368,7 +412,7 @@ async fn users_create(
         b.email,
         b.role,
         b.password,
-        &st.db,
+        &st.db.fresh(),
         &st.sessions,
     )
     .await)
@@ -379,7 +423,14 @@ async fn users_status(
     Path(id): Path<String>,
     Json(b): Json<StatusBody>,
 ) -> Response {
-    out(set_user_status_impl(&bearer(&headers), id, b.status, &st.db, &st.sessions).await)
+    out(set_user_status_impl(
+        &bearer(&headers),
+        id,
+        b.status,
+        &st.db.fresh(),
+        &st.sessions,
+    )
+    .await)
 }
 #[derive(serde::Deserialize)]
 struct RoleBody {
@@ -391,7 +442,7 @@ async fn users_role(
     Path(id): Path<String>,
     Json(b): Json<RoleBody>,
 ) -> Response {
-    out(update_user_role_impl(&bearer(&headers), id, b.role, &st.db, &st.sessions).await)
+    out(update_user_role_impl(&bearer(&headers), id, b.role, &st.db.fresh(), &st.sessions).await)
 }
 #[derive(serde::Deserialize)]
 struct PasswordBody {
@@ -403,7 +454,14 @@ async fn users_password(
     Path(id): Path<String>,
     Json(b): Json<PasswordBody>,
 ) -> Response {
-    out(reset_user_password_impl(&bearer(&headers), id, b.password, &st.db, &st.sessions).await)
+    out(reset_user_password_impl(
+        &bearer(&headers),
+        id,
+        b.password,
+        &st.db.fresh(),
+        &st.sessions,
+    )
+    .await)
 }
 
 /// Build the CORS layer. In production set ALLOWED_ORIGINS to a comma-separated

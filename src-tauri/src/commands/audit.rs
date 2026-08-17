@@ -78,7 +78,7 @@ pub async fn list_class_notifications(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<AuditLog>> {
-    list_class_notifications_impl(&token, &db, &sessions).await
+    list_class_notifications_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]
@@ -88,5 +88,5 @@ pub async fn list_audit(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
 ) -> AppResult<Vec<AuditLog>> {
-    list_audit_impl(&token, &db, &sessions).await
+    list_audit_impl(&token, &db.fresh(), &sessions).await
 }
