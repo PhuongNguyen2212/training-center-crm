@@ -234,7 +234,14 @@ export const useDataStore = create<DataState>()(
           ),
           load(
             () => backend.listSessions(token),
-            (v) => set({ sessions: v as Session[] }),
+            // An older server omits studentIds — default to an empty roster.
+            (v) =>
+              set({
+                sessions: (v as Session[]).map((se) => ({
+                  ...se,
+                  studentIds: se.studentIds ?? [],
+                })),
+              }),
           ),
           load(
             () => backend.listAttendance(token),
