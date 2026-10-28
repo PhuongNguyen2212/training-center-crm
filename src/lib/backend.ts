@@ -9,8 +9,6 @@ import type {
   Attendance,
   AttendanceStatus,
   AuditLog,
-  Class,
-  ClassStatus,
   EnrollmentStatus,
   Homework,
   HomeworkStatus,
@@ -145,21 +143,6 @@ export const backend = {
   listClassNotifications: (token: string) =>
     call<AuditLog[]>("list_class_notifications", { token }, { method: "GET", path: "/api/notifications", token }),
 
-  // Classes
-  listClasses: (token: string) =>
-    call<Class[]>("list_classes", { token }, { method: "GET", path: "/api/classes", token }),
-  createClass: (token: string, input: ClassInput) =>
-    call<Class>("create_class", { token, input }, { method: "POST", path: "/api/classes", token, body: input }),
-  updateClass: (token: string, id: string, input: ClassInput) =>
-    call<Class>("update_class", { token, id, input }, { method: "PUT", path: `/api/classes/${id}`, token, body: input }),
-  setClassStatus: (token: string, id: string, status: ClassStatus) =>
-    call<void>("set_class_status", { token, id, status }, { method: "POST", path: `/api/classes/${id}/status`, token, body: { status } }),
-  enrollStudent: (token: string, classId: string, studentId: string) =>
-    call<void>("enroll_student", { token, classId, studentId }, { method: "POST", path: `/api/classes/${classId}/enroll`, token, body: { studentId } }),
-  unenrollStudent: (token: string, classId: string, studentId: string) =>
-    call<void>("unenroll_student", { token, classId, studentId }, { method: "POST", path: `/api/classes/${classId}/unenroll`, token, body: { studentId } }),
-  deleteClass: (token: string, id: string) =>
-    call<void>("delete_class", { token, id }, { method: "DELETE", path: `/api/classes/${id}`, token }),
 
   // Sessions
   listSessions: (token: string) =>
@@ -168,6 +151,10 @@ export const backend = {
     call<Session>("create_session", { token, input }, { method: "POST", path: "/api/sessions", token, body: input }),
   updateSession: (token: string, id: string, input: SessionInput) =>
     call<Session>("update_session", { token, id, input }, { method: "PUT", path: `/api/sessions/${id}`, token, body: input }),
+  addSessionStudents: (token: string, sessionId: string, studentIds: string[]) =>
+    call<Session>("add_session_students", { token, sessionId, studentIds }, { method: "POST", path: `/api/sessions/${sessionId}/students`, token, body: { studentIds } }),
+  removeSessionStudent: (token: string, sessionId: string, studentId: string) =>
+    call<Session>("remove_session_student", { token, sessionId, studentId }, { method: "DELETE", path: `/api/sessions/${sessionId}/students/${studentId}`, token }),
   deleteSession: (token: string, id: string) =>
     call<void>("delete_session", { token, id }, { method: "DELETE", path: `/api/sessions/${id}`, token }),
   upsertSessionsFromGoogle: (token: string, incoming: SessionInput[]) =>
@@ -206,19 +193,12 @@ export const backend = {
     call<void>("soft_delete_payment_doc", { token, id }, { method: "DELETE", path: `/api/payments/${id}`, token }),
 };
 
-export interface ClassInput {
-  name: string;
-  courseName: string;
-  teacherId: string | null;
-}
-
 export interface SessionInput {
   googleEventId: string | null;
   title: string;
   startTime: string;
   endTime: string;
   teacherId: string | null;
-  classId: string | null;
 }
 
 export interface PaymentDocInput {

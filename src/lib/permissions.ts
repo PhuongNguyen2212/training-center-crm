@@ -9,8 +9,6 @@ import type { Role } from "@/types";
 export type Capability =
   | "schedule.view"
   | "schedule.edit"
-  | "classes.view"
-  | "classes.edit"
   | "students.view"
   | "students.edit"
   | "attendance.mark"
@@ -23,14 +21,12 @@ export type Capability =
   | "sales.view"
   | "users.manage";
 
-// "own" scoping (e.g. teacher sees only their classes) is handled at the data
+// "own" scoping (e.g. teacher sees only their sessions) is handled at the data
 // layer; this matrix answers the coarse "can this role touch the feature at all".
 const MATRIX: Record<Role, Capability[]> = {
   admin: [
     "schedule.view",
     "schedule.edit",
-    "classes.view",
-    "classes.edit",
     "students.view",
     "students.edit",
     "attendance.mark",
@@ -45,7 +41,6 @@ const MATRIX: Record<Role, Capability[]> = {
   ],
   teacher: [
     "schedule.view",
-    "classes.view",
     "students.view",
     "attendance.mark",
     "attendance.view",

@@ -3,8 +3,6 @@
 import {
   BookCheck,
   CalendarDays,
-  ClipboardCheck,
-  GraduationCap,
   LayoutDashboard,
   Receipt,
   Target,
@@ -25,22 +23,10 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Tổng quan", icon: LayoutDashboard, cap: null },
   { to: "/students", label: "Học viên", icon: Users, cap: "students.view" },
   {
-    to: "/classes",
-    label: "Lớp học",
-    icon: GraduationCap,
-    cap: "classes.view",
-  },
-  {
-    to: "/schedule",
-    label: "Lịch học",
+    to: "/sessions",
+    label: "Buổi học & Điểm danh",
     icon: CalendarDays,
     cap: "schedule.view",
-  },
-  {
-    to: "/attendance",
-    label: "Điểm danh",
-    icon: ClipboardCheck,
-    cap: "attendance.view",
   },
   {
     to: "/homework",

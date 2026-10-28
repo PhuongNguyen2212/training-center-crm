@@ -4,9 +4,7 @@ import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import StudentsPage from "@/features/students/StudentsPage";
-import ClassesPage from "@/features/classes/ClassesPage";
-import SchedulePage from "@/features/schedule/SchedulePage";
-import AttendancePage from "@/features/attendance/AttendancePage";
+import SessionsPage from "@/features/sessions/SessionsPage";
 import FinancePage from "@/features/finance/FinancePage";
 import KpiPage from "@/features/kpi/KpiPage";
 import HomeworkPage from "@/features/kpi/HomeworkPage";
@@ -30,9 +28,14 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/students" element={<StudentsPage />} />
-        <Route path="/classes" element={<ClassesPage />} />
-        <Route path="/schedule" element={<SchedulePage />} />
-        <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/sessions" element={<SessionsPage />} />
+        {/* Old pages merged into /sessions */}
+        <Route path="/classes" element={<Navigate to="/sessions" replace />} />
+        <Route
+          path="/schedule"
+          element={<Navigate to="/sessions" replace />}
+        />
+        <Route path="/attendance" element={<Navigate to="/sessions" replace />} />
         <Route path="/homework" element={<HomeworkPage />} />
         <Route path="/finance" element={<FinancePage />} />
         <Route path="/kpi" element={<KpiPage />} />
