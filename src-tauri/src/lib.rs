@@ -48,6 +48,7 @@ pub mod testkit {
     pub use crate::auth::{current_user, AuthUser, LoginGuard, Sessions};
     pub use crate::commands::attendance::{list_attendance_impl, mark_attendance_impl};
     pub use crate::commands::auth::{change_own_password_impl, login_impl, me_impl};
+    pub use crate::commands::sessions::add_session_students_impl;
     pub use crate::commands::students::{list_students_impl, soft_delete_student_impl};
     pub use crate::db::{open_memory, Db};
     pub use crate::error::{AppError, AppResult};
@@ -145,18 +146,13 @@ pub fn run() {
             commands::staff::reset_user_password,
             commands::audit::list_audit,
             commands::audit::list_class_notifications,
-            commands::classes::list_classes,
-            commands::classes::create_class,
-            commands::classes::update_class,
-            commands::classes::set_class_status,
-            commands::classes::enroll_student,
-            commands::classes::unenroll_student,
-            commands::classes::delete_class,
             commands::sessions::list_sessions,
             commands::sessions::create_session,
             commands::sessions::update_session,
             commands::sessions::delete_session,
             commands::sessions::upsert_sessions_from_google,
+            commands::sessions::add_session_students,
+            commands::sessions::remove_session_student,
             commands::attendance::list_attendance,
             commands::attendance::mark_attendance,
             commands::attendance::list_homework,

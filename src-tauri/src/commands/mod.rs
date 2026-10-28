@@ -15,7 +15,6 @@
 pub mod attendance;
 pub mod audit;
 pub mod auth;
-pub mod classes;
 pub mod payments;
 pub mod sessions;
 pub mod staff;

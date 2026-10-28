@@ -4,16 +4,21 @@ import { useDataStore } from "@/store/data-store";
 import { hasRemoteBackend } from "@/lib/backend";
 import { formatDateTime } from "@/lib/labels";
 
-// Any class-related activity (enroll/unenroll/create/update/status/delete) is
-// broadcast to EVERYONE via `notifications` (unscoped). In the web demo we fall
-// back to local audit logs filtered to class actions.
-const isClassAction = (action: string) => action.startsWith("class.");
+// Roster activity (student added to / removed from a session; older class.*
+// rows too) is broadcast to EVERYONE via `notifications` (unscoped). In the web
+// demo we fall back to local audit logs filtered to those actions.
+const isClassAction = (action: string) =>
+  action.startsWith("roster.") || action.startsWith("class.");
 const SEEN_KEY = "crm.notifications.seenAt";
 
 const dotColor = (action: string) =>
-  action === "class.unenroll" || action === "class.delete"
+  action === "roster.remove" ||
+  action === "class.unenroll" ||
+  action === "class.delete"
     ? "bg-rose-400"
-    : action === "class.enroll" || action === "class.create"
+    : action === "roster.add" ||
+        action === "class.enroll" ||
+        action === "class.create"
       ? "bg-emerald-400"
       : "bg-sky-400";
 

@@ -11,8 +11,6 @@ import type {
   Attendance,
   AttendanceStatus,
   AuditLog,
-  Class,
-  ClassStatus,
   Homework,
   HomeworkStatus,
   PaymentDoc,
@@ -25,7 +23,6 @@ import type {
 import {
   seedAttendance,
   seedAuditLogs,
-  seedClasses,
   seedHomework,
   seedPaymentDocs,
   seedSessions,
@@ -66,13 +63,12 @@ const nowIso = () => new Date().toISOString();
 export interface DataState {
   users: User[];
   students: Student[];
-  classes: Class[];
   sessions: Session[];
   attendance: Attendance[];
   homework: Homework[];
   paymentDocs: PaymentDoc[];
   auditLogs: AuditLog[];
-  /** Class-activity notifications, broadcast to everyone (powers the bell). */
+  /** Roster-activity notifications, broadcast to everyone (powers the bell). */
   notifications: AuditLog[];
 
   // --- Audit ---
@@ -153,48 +149,31 @@ export interface DataState {
   /** Open a stored payment document for viewing (desktop/Tauri only). */
   viewPaymentDoc: (id: string) => Promise<void>;
 
-  // --- Classes (Lớp học) ---
-  addClass: (
-    data: {
-      name: string;
-      courseName: string;
-      teacherId: string | null;
-    },
-    actorId: string,
-  ) => Promise<void>;
-  updateClass: (
-    id: string,
-    data: Partial<Pick<Class, "name" | "courseName" | "teacherId" | "status">>,
-    actorId: string,
-  ) => Promise<void>;
-  enrollStudent: (
-    classId: string,
-    studentId: string,
-    actorId: string,
-  ) => Promise<void>;
-  unenrollStudent: (
-    classId: string,
-    studentId: string,
-    actorId: string,
-  ) => Promise<void>;
-  setClassStatus: (
-    id: string,
-    status: ClassStatus,
-    actorId: string,
-  ) => Promise<void>;
-  deleteClass: (id: string, actorId: string) => Promise<void>;
-
   // --- Sessions (Google Calendar) ---
-  addSession: (data: Omit<Session, "id">, actorId: string) => Promise<void>;
+  addSession: (
+    data: Omit<Session, "id" | "studentIds">,
+    actorId: string,
+  ) => Promise<void>;
   updateSession: (
     id: string,
     data: Partial<Session>,
     actorId: string,
   ) => Promise<void>;
   deleteSession: (id: string, actorId: string) => Promise<void>;
+  // Session roster: students attending a session (attendance is marked on it).
+  addSessionStudents: (
+    sessionId: string,
+    studentIds: string[],
+    actorId: string,
+  ) => Promise<void>;
+  removeSessionStudent: (
+    sessionId: string,
+    studentId: string,
+    actorId: string,
+  ) => Promise<void>;
   // Merge events pulled from Google: upsert by google_event_id, keep local-only.
   upsertSessionsFromGoogle: (
-    incoming: Omit<Session, "id">[],
+    incoming: Omit<Session, "id" | "studentIds">[],
     actorId: string,
   ) => Promise<void>;
 
@@ -204,7 +183,6 @@ export interface DataState {
 const initialData = () => ({
   users: seedUsers,
   students: seedStudents,
-  classes: seedClasses,
   sessions: seedSessions,
   attendance: seedAttendance,
   homework: seedHomework,
@@ -253,10 +231,6 @@ export const useDataStore = create<DataState>()(
           load(
             () => backend.listClassNotifications(token),
             (v) => set({ notifications: v }),
-          ),
-          load(
-            () => backend.listClasses(token),
-            (v) => set({ classes: v as Class[] }),
           ),
           load(
             () => backend.listSessions(token),
@@ -665,150 +639,6 @@ export const useDataStore = create<DataState>()(
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
       },
 
-      addClass: async (data, actorId) => {
-        if (hasRemoteBackend()) {
-          const token = authToken();
-          if (token) {
-            const cls = (await backend.createClass(token, {
-              name: data.name,
-              courseName: data.courseName,
-              teacherId: data.teacherId,
-            })) as Class;
-            set((s) => ({ classes: [cls, ...s.classes] }));
-            return;
-          }
-        }
-        const cls: Class = {
-          id: uid("class"),
-          name: data.name.trim(),
-          courseName: data.courseName.trim(),
-          teacherId: data.teacherId,
-          studentIds: [],
-          status: "active",
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-        };
-        set((s) => ({ classes: [cls, ...s.classes] }));
-        get().addAudit(actorId, "class.create", `Tạo lớp ${cls.name}`);
-      },
-
-      updateClass: async (id, data, actorId) => {
-        if (hasRemoteBackend()) {
-          const token = authToken();
-          const existing = get().classes.find((c) => c.id === id);
-          if (token && existing) {
-            const merged = { ...existing, ...data };
-            const updated = (await backend.updateClass(token, id, {
-              name: merged.name,
-              courseName: merged.courseName,
-              teacherId: merged.teacherId,
-            })) as Class;
-            set((s) => ({
-              classes: s.classes.map((c) => (c.id === id ? updated : c)),
-            }));
-            return;
-          }
-        }
-        const prev = get().classes.find((c) => c.id === id);
-        set((s) => ({
-          classes: s.classes.map((c) =>
-            c.id === id ? { ...c, ...data, updatedAt: nowIso() } : c,
-          ),
-        }));
-        get().addAudit(actorId, "class.update", `Cập nhật lớp ${prev?.name ?? id}`);
-      },
-
-      enrollStudent: async (classId, studentId, actorId) => {
-        if (hasRemoteBackend()) {
-          const token = authToken();
-          if (token) {
-            await backend.enrollStudent(token, classId, studentId);
-          }
-        }
-        const cls = get().classes.find((c) => c.id === classId);
-        if (!cls || cls.studentIds.includes(studentId)) return; // no duplicates
-        set((s) => ({
-          classes: s.classes.map((c) =>
-            c.id === classId
-              ? { ...c, studentIds: [...c.studentIds, studentId], updatedAt: nowIso() }
-              : c,
-          ),
-        }));
-        if (!hasRemoteBackend()) {
-          const st = get().students.find((x) => x.id === studentId);
-          get().addAudit(
-            actorId,
-            "class.enroll",
-            `Ghi danh ${st?.name ?? studentId} vào ${cls.name}`,
-          );
-        }
-      },
-
-      unenrollStudent: async (classId, studentId, actorId) => {
-        if (hasRemoteBackend()) {
-          const token = authToken();
-          if (token) await backend.unenrollStudent(token, classId, studentId);
-        }
-        const cls = get().classes.find((c) => c.id === classId);
-        set((s) => ({
-          classes: s.classes.map((c) =>
-            c.id === classId
-              ? {
-                  ...c,
-                  studentIds: c.studentIds.filter((id) => id !== studentId),
-                  updatedAt: nowIso(),
-                }
-              : c,
-          ),
-        }));
-        if (!hasRemoteBackend()) {
-          const st = get().students.find((x) => x.id === studentId);
-          get().addAudit(
-            actorId,
-            "class.unenroll",
-            `Rút ${st?.name ?? studentId} khỏi ${cls?.name ?? classId}`,
-          );
-        }
-      },
-
-      setClassStatus: async (id, status, actorId) => {
-        if (hasRemoteBackend()) {
-          const token = authToken();
-          if (token) await backend.setClassStatus(token, id, status);
-        }
-        const prev = get().classes.find((c) => c.id === id);
-        set((s) => ({
-          classes: s.classes.map((c) =>
-            c.id === id ? { ...c, status, updatedAt: nowIso() } : c,
-          ),
-        }));
-        if (!hasRemoteBackend()) {
-          get().addAudit(
-            actorId,
-            "class.status_change",
-            `Lớp ${prev?.name ?? id} → ${status}`,
-          );
-        }
-      },
-
-      deleteClass: async (id, actorId) => {
-        const cls = get().classes.find((c) => c.id === id);
-        if (hasRemoteBackend()) {
-          const token = authToken();
-          if (token) await backend.deleteClass(token, id);
-        }
-        set((s) => ({
-          classes: s.classes.filter((c) => c.id !== id),
-          // Unlink sessions of the deleted class (keep them).
-          sessions: s.sessions.map((se) =>
-            se.classId === id ? { ...se, classId: null } : se,
-          ),
-        }));
-        if (!hasRemoteBackend()) {
-          get().addAudit(actorId, "class.delete", `Xóa lớp ${cls?.name ?? id}`);
-        }
-      },
-
       addSession: async (data, actorId) => {
         if (hasRemoteBackend()) {
           const token = authToken();
@@ -819,7 +649,6 @@ export const useDataStore = create<DataState>()(
               startTime: data.startTime,
               endTime: data.endTime,
               teacherId: data.teacherId,
-              classId: data.classId,
             })) as Session;
             set((s) => ({ sessions: [...s.sessions, session] }));
             return;
@@ -827,6 +656,7 @@ export const useDataStore = create<DataState>()(
         }
         const session: Session = {
           ...data,
+          studentIds: [],
           id: uid("ses"),
           googleEventId: data.googleEventId ?? `gcal-evt-${uid("")}`,
         };
@@ -846,7 +676,6 @@ export const useDataStore = create<DataState>()(
               startTime: m.startTime,
               endTime: m.endTime,
               teacherId: m.teacherId,
-              classId: m.classId,
             })) as Session;
             set((s) => ({
               sessions: s.sessions.map((se) => (se.id === id ? updated : se)),
@@ -878,6 +707,80 @@ export const useDataStore = create<DataState>()(
         }
       },
 
+      addSessionStudents: async (sessionId, studentIds, actorId) => {
+        if (hasRemoteBackend()) {
+          const token = authToken();
+          if (token) {
+            const updated = (await backend.addSessionStudents(
+              token,
+              sessionId,
+              studentIds,
+            )) as Session;
+            set((s) => ({
+              sessions: s.sessions.map((se) => (se.id === sessionId ? updated : se)),
+            }));
+            return;
+          }
+        }
+        const ses = get().sessions.find((se) => se.id === sessionId);
+        if (!ses) return;
+        const fresh = studentIds.filter((id) => !ses.studentIds.includes(id));
+        if (fresh.length === 0) return; // no duplicates
+        set((s) => ({
+          sessions: s.sessions.map((se) =>
+            se.id === sessionId
+              ? { ...se, studentIds: [...se.studentIds, ...fresh] }
+              : se,
+          ),
+        }));
+        get().addAudit(
+          actorId,
+          "roster.add",
+          `Thêm ${fresh.length} học viên vào buổi ${ses.title}`,
+        );
+      },
+
+      removeSessionStudent: async (sessionId, studentId, actorId) => {
+        if (hasRemoteBackend()) {
+          const token = authToken();
+          if (token) {
+            const updated = (await backend.removeSessionStudent(
+              token,
+              sessionId,
+              studentId,
+            )) as Session;
+            set((s) => ({
+              sessions: s.sessions.map((se) => (se.id === sessionId ? updated : se)),
+            }));
+            return;
+          }
+        }
+        // Attendance is proof: once marked, the student stays on the roster.
+        if (
+          get().attendance.some(
+            (a) => a.sessionId === sessionId && a.studentId === studentId,
+          )
+        ) {
+          throw new Error(
+            "Học viên đã được điểm danh ở buổi này nên không thể rút khỏi danh sách.",
+          );
+        }
+        const ses = get().sessions.find((se) => se.id === sessionId);
+        set((s) => ({
+          sessions: s.sessions.map((se) =>
+            se.id === sessionId
+              ? { ...se, studentIds: se.studentIds.filter((id) => id !== studentId) }
+              : se,
+          ),
+        }));
+        const st = get().students.find((x) => x.id === studentId);
+        get().addAudit(
+          actorId,
+          "roster.remove",
+          `Rút ${st?.name ?? studentId} khỏi buổi ${ses?.title ?? sessionId}`,
+        );
+      },
+
       upsertSessionsFromGoogle: async (incoming, actorId) => {
         if (hasRemoteBackend()) {
           const token = authToken();
@@ -890,7 +793,6 @@ export const useDataStore = create<DataState>()(
                 startTime: g.startTime,
                 endTime: g.endTime,
                 teacherId: g.teacherId,
-                classId: g.classId,
               })),
             )) as Session[];
             set({ sessions: all });
@@ -913,7 +815,7 @@ export const useDataStore = create<DataState>()(
             .filter(
               (g) => !s.sessions.some((se) => se.googleEventId === g.googleEventId),
             )
-            .map((g) => ({ ...g, id: uid("ses") }));
+            .map((g) => ({ ...g, studentIds: [], id: uid("ses") }));
           return { sessions: [...updated, ...added] };
         });
         get().addAudit(
@@ -925,6 +827,20 @@ export const useDataStore = create<DataState>()(
 
       resetData: () => set({ ...initialData() }),
     }),
-    { name: "crm-data" },
+    {
+      name: "crm-data",
+      version: 1,
+      // v0 sessions had classId instead of a roster.
+      migrate: (persisted) => {
+        const st = persisted as Partial<DataState>;
+        return {
+          ...st,
+          sessions: (st.sessions ?? []).map((se) => ({
+            ...se,
+            studentIds: se.studentIds ?? [],
+          })),
+        } as DataState;
+      },
+    },
   ),
 );

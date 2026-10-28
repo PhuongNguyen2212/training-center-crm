@@ -42,6 +42,17 @@ CREATE TABLE IF NOT EXISTS classes (
   updated_at  TEXT NOT NULL
 );
 
+-- Per-session roster: the students expected at a session (attendance is
+-- marked against this list). Replaces class rosters in the app; the classes /
+-- class_students tables are kept but no longer used.
+CREATE TABLE IF NOT EXISTS session_students (
+  session_id TEXT NOT NULL REFERENCES sessions(id),
+  student_id TEXT NOT NULL REFERENCES students(id),
+  added_by   TEXT NOT NULL REFERENCES users(id),
+  added_at   TEXT NOT NULL,
+  PRIMARY KEY (session_id, student_id)
+);
+
 CREATE TABLE IF NOT EXISTS class_students (
   class_id    TEXT NOT NULL REFERENCES classes(id),
   student_id  TEXT NOT NULL REFERENCES students(id),

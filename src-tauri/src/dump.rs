@@ -6,12 +6,13 @@ use crate::error::{AppError, AppResult};
 use libsql::{Connection, Value};
 
 /// Tables in FK-safe insert order (parents before children).
-pub const TABLES: [&str; 9] = [
+pub const TABLES: [&str; 10] = [
     "users",
     "students",
     "classes",
     "class_students",
     "sessions",
+    "session_students",
     "attendance",
     "payment_docs",
     "homework",

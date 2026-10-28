@@ -24,7 +24,8 @@ fn map_audit(r: &Row) -> libsql::Result<AuditLog> {
 
 // ---- Transport-agnostic logic ----
 
-/// Class-activity notifications (enroll/unenroll/create/delete/...). Broadcast to
+/// Roster-activity notifications (student added to / removed from a session;
+/// older class.* rows are still shown). Broadcast to
 /// EVERY logged-in user — unscoped, unlike the personal audit log.
 pub async fn list_class_notifications_impl(
     token: &str,
@@ -34,7 +35,7 @@ pub async fn list_class_notifications_impl(
     current_user(db, sessions, token).await?; // any authenticated user
     query_all(
         &db.conn,
-        &format!("SELECT {COLS} {FROM} WHERE a.action LIKE 'class.%' ORDER BY a.created_at DESC LIMIT 50"),
+        &format!("SELECT {COLS} {FROM} WHERE (a.action LIKE 'class.%' OR a.action LIKE 'roster.%') ORDER BY a.created_at DESC LIMIT 50"),
         (),
         map_audit,
     )

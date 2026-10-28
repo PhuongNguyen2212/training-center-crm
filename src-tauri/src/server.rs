@@ -9,16 +9,13 @@ use crate::commands::attendance::{
 };
 use crate::commands::audit::{list_audit_impl, list_class_notifications_impl};
 use crate::commands::auth::{change_own_password_impl, login_impl, me_impl};
-use crate::commands::classes::{
-    create_class_impl, delete_class_impl, enroll_student_impl, list_classes_impl,
-    set_class_status_impl, unenroll_student_impl, update_class_impl,
-};
 use crate::commands::payments::{
     create_payment_doc_impl, list_payment_docs_impl, read_payment_doc_impl,
     soft_delete_payment_doc_impl,
 };
 use crate::commands::sessions::{
-    create_session_impl, delete_session_impl, list_sessions_impl, update_session_impl,
+    add_session_students_impl, create_session_impl, delete_session_impl, list_sessions_impl,
+    remove_session_student_impl, update_session_impl,
 };
 use crate::commands::staff::{
     create_staff_impl, list_users_impl, reset_user_password_impl, set_user_status_impl,
@@ -29,7 +26,7 @@ use crate::commands::students::{
 };
 use crate::db::Db;
 use crate::error::{AppError, AppResult};
-use crate::models::{ClassInput, PaymentDocInput, SessionInput, StudentInput};
+use crate::models::{PaymentDocInput, SessionInput, StudentInput};
 use crate::ratelimit::RateLimiter;
 use axum::{
     extract::{Path, State},
@@ -186,83 +183,39 @@ async fn students_delete(
     out(soft_delete_student_impl(&bearer(&headers), &id, &st.db.fresh(), &st.sessions).await)
 }
 
-// ---- Classes ----
-async fn classes_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_classes_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
-}
-async fn classes_create(
-    State(st): State<AppState>,
-    headers: HeaderMap,
-    Json(b): Json<ClassInput>,
-) -> Response {
-    out(create_class_impl(&bearer(&headers), b, &st.db.fresh(), &st.sessions).await)
-}
-async fn classes_update(
-    State(st): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-    Json(b): Json<ClassInput>,
-) -> Response {
-    out(update_class_impl(&bearer(&headers), id, b, &st.db.fresh(), &st.sessions).await)
-}
-async fn classes_delete(
-    State(st): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-) -> Response {
-    out(delete_class_impl(&bearer(&headers), id, &st.db.fresh(), &st.sessions).await)
-}
-
 #[derive(serde::Deserialize)]
 struct StatusBody {
     status: String,
 }
-async fn classes_status(
-    State(st): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-    Json(b): Json<StatusBody>,
-) -> Response {
-    out(set_class_status_impl(
-        &bearer(&headers),
-        id,
-        b.status,
-        &st.db.fresh(),
-        &st.sessions,
-    )
-    .await)
-}
-
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct EnrollBody {
-    student_id: String,
+struct AddStudentsBody {
+    student_ids: Vec<String>,
 }
-async fn classes_enroll(
+async fn sessions_add_students(
     State(st): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(b): Json<EnrollBody>,
+    Json(b): Json<AddStudentsBody>,
 ) -> Response {
-    out(enroll_student_impl(
+    out(add_session_students_impl(
         &bearer(&headers),
         id,
-        b.student_id,
+        b.student_ids,
         &st.db.fresh(),
         &st.sessions,
     )
     .await)
 }
-async fn classes_unenroll(
+async fn sessions_remove_student(
     State(st): State<AppState>,
     headers: HeaderMap,
-    Path(id): Path<String>,
-    Json(b): Json<EnrollBody>,
+    Path((id, student_id)): Path<(String, String)>,
 ) -> Response {
-    out(unenroll_student_impl(
+    out(remove_session_student_impl(
         &bearer(&headers),
         id,
-        b.student_id,
+        student_id,
         &st.db.fresh(),
         &st.sessions,
     )
@@ -512,20 +465,17 @@ fn build_router(state: AppState) -> Router {
             "/api/students/:id",
             put(students_update).delete(students_delete),
         )
-        .route("/api/classes", get(classes_list).post(classes_create))
-        .route(
-            "/api/classes/:id",
-            put(classes_update).delete(classes_delete),
-        )
-        .route("/api/classes/:id/status", post(classes_status))
-        .route("/api/classes/:id/enroll", post(classes_enroll))
-        .route("/api/classes/:id/unenroll", post(classes_unenroll))
         .route("/api/audit", get(audit_list))
         .route("/api/notifications", get(notifications_list))
         .route("/api/sessions", get(sessions_list).post(sessions_create))
         .route(
             "/api/sessions/:id",
             put(sessions_update).delete(sessions_delete),
+        )
+        .route("/api/sessions/:id/students", post(sessions_add_students))
+        .route(
+            "/api/sessions/:id/students/:student_id",
+            axum::routing::delete(sessions_remove_student),
         )
         .route(
             "/api/attendance",

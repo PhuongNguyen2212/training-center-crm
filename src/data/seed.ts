@@ -5,7 +5,6 @@
 import type {
   Attendance,
   AuditLog,
-  Class,
   Homework,
   PaymentDoc,
   Session,
@@ -164,41 +163,6 @@ export const seedStudents: Student[] = [
   },
 ];
 
-// Class IDs match the classId used on the seed sessions so the schedule and
-// attendance line up with each class roster.
-export const seedClasses: Class[] = [
-  {
-    id: "lop-a",
-    name: "Lớp Giao tiếp A",
-    courseName: "Giao tiếp tiếng Anh",
-    teacherId: "u-teacher-1",
-    studentIds: ["s-1", "s-2", "s-5"],
-    status: "active",
-    createdAt: daysAgo(130),
-    updatedAt: daysAgo(10),
-  },
-  {
-    id: "lop-ielts-b",
-    name: "Lớp IELTS B",
-    courseName: "Luyện thi IELTS",
-    teacherId: "u-teacher-2",
-    studentIds: ["s-2"],
-    status: "active",
-    createdAt: daysAgo(80),
-    updatedAt: daysAgo(8),
-  },
-  {
-    id: "lop-toeic-c",
-    name: "Lớp TOEIC C",
-    courseName: "Luyện thi TOEIC",
-    teacherId: "u-teacher-2",
-    studentIds: ["s-5"],
-    status: "active",
-    createdAt: daysAgo(70),
-    updatedAt: daysAgo(12),
-  },
-];
-
 export const seedSessions: Session[] = [
   {
     id: "ses-1",
@@ -207,7 +171,7 @@ export const seedSessions: Session[] = [
     startTime: at(-2, 18, 0),
     endTime: at(-2, 20, 0),
     teacherId: "u-teacher-1",
-    classId: "lop-a",
+    studentIds: ["s-1", "s-2", "s-5"],
   },
   {
     id: "ses-2",
@@ -216,7 +180,7 @@ export const seedSessions: Session[] = [
     startTime: at(0, 18, 0),
     endTime: at(0, 20, 0),
     teacherId: "u-teacher-1",
-    classId: "lop-a",
+    studentIds: ["s-1", "s-2", "s-5"],
   },
   {
     id: "ses-3",
@@ -225,7 +189,7 @@ export const seedSessions: Session[] = [
     startTime: at(2, 18, 0),
     endTime: at(2, 20, 0),
     teacherId: "u-teacher-1",
-    classId: "lop-a",
+    studentIds: ["s-1", "s-2", "s-5"],
   },
   {
     id: "ses-4",
@@ -234,7 +198,7 @@ export const seedSessions: Session[] = [
     startTime: at(0, 9, 0),
     endTime: at(0, 11, 30),
     teacherId: "u-teacher-2",
-    classId: "lop-ielts-b",
+    studentIds: ["s-2"],
   },
   {
     id: "ses-5",
@@ -243,7 +207,7 @@ export const seedSessions: Session[] = [
     startTime: at(3, 9, 0),
     endTime: at(3, 11, 30),
     teacherId: "u-teacher-2",
-    classId: "lop-ielts-b",
+    studentIds: ["s-2"],
   },
   {
     id: "ses-6",
@@ -252,7 +216,7 @@ export const seedSessions: Session[] = [
     startTime: at(1, 19, 0),
     endTime: at(1, 21, 0),
     teacherId: "u-teacher-2",
-    classId: "lop-toeic-c",
+    studentIds: ["s-5"],
   },
 ];
 

@@ -109,38 +109,32 @@ describe("Học viên — thêm mới (store action)", () => {
   });
 });
 
-describe("Lớp học — ghi danh / rút học viên", () => {
-  it("tạo lớp mới có sĩ số rỗng và trạng thái active", () => {
-    useDataStore.getState().addClass(
-      { name: "Lớp Mới", courseName: "Khóa X", teacherId: "u-teacher-1" },
-      "u-admin",
-    );
-    const cls = useDataStore.getState().classes.find((c) => c.name === "Lớp Mới")!;
-    expect(cls.studentIds).toEqual([]);
-    expect(cls.status).toBe("active");
-  });
-
-  it("BUG GUARD: ghi danh không tạo trùng học viên trong lớp", () => {
-    useDataStore.getState().enrollStudent("lop-ielts-b", "s-1", "u-admin");
-    useDataStore.getState().enrollStudent("lop-ielts-b", "s-1", "u-admin");
-    const cls = useDataStore.getState().classes.find((c) => c.id === "lop-ielts-b")!;
-    expect(cls.studentIds.filter((id) => id === "s-1")).toHaveLength(1);
-  });
-
-  it("rút học viên khỏi lớp", () => {
-    useDataStore.getState().unenrollStudent("lop-a", "s-1", "u-admin");
-    const cls = useDataStore.getState().classes.find((c) => c.id === "lop-a")!;
-    expect(cls.studentIds).not.toContain("s-1");
-  });
-
-  it("đổi trạng thái lớp ghi audit", () => {
-    useDataStore.getState().setClassStatus("lop-toeic-c", "completed", "u-admin");
+describe("Danh sách học viên theo buổi", () => {
+  it("thêm học viên vào buổi, không tạo trùng", async () => {
+    const s = useDataStore.getState();
+    await s.addSessionStudents("ses-4", ["s-1"], "u-admin");
+    await s.addSessionStudents("ses-4", ["s-1", "s-2"], "u-admin");
+    const ses = useDataStore.getState().sessions.find((x) => x.id === "ses-4")!;
+    expect(ses.studentIds.filter((id) => id === "s-1")).toHaveLength(1);
+    expect(ses.studentIds).toContain("s-2");
     expect(
-      useDataStore.getState().classes.find((c) => c.id === "lop-toeic-c")!.status,
-    ).toBe("completed");
-    expect(
-      useDataStore.getState().auditLogs.some((l) => l.action === "class.status_change"),
+      useDataStore.getState().auditLogs.some((l) => l.action === "roster.add"),
     ).toBe(true);
+  });
+
+  it("rút học viên chưa điểm danh khỏi buổi", async () => {
+    await useDataStore.getState().removeSessionStudent("ses-3", "s-1", "u-admin");
+    const ses = useDataStore.getState().sessions.find((x) => x.id === "ses-3")!;
+    expect(ses.studentIds).not.toContain("s-1");
+  });
+
+  it("BUG GUARD: KHÔNG rút được học viên đã điểm danh (bằng chứng tham gia)", async () => {
+    useDataStore.getState().markAttendance("s-2", "ses-3", "present", "u-teacher-1");
+    await expect(
+      useDataStore.getState().removeSessionStudent("ses-3", "s-2", "u-admin"),
+    ).rejects.toThrow();
+    const ses = useDataStore.getState().sessions.find((x) => x.id === "ses-3")!;
+    expect(ses.studentIds).toContain("s-2");
   });
 });
 
@@ -156,7 +150,6 @@ describe("Đồng bộ Google Calendar — gộp theo google_event_id", () => {
           startTime: new Date().toISOString(),
           endTime: new Date().toISOString(),
           teacherId: "u-teacher-1",
-          classId: "lop-a",
         },
         // mới hoàn toàn
         {
@@ -165,7 +158,6 @@ describe("Đồng bộ Google Calendar — gộp theo google_event_id", () => {
           startTime: new Date().toISOString(),
           endTime: new Date().toISOString(),
           teacherId: null,
-          classId: null,
         },
       ],
       "u-admin",
