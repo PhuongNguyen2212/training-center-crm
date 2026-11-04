@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
+import { can } from "@/lib/permissions";
 import { PageHeader, StatCard } from "@/components/ui";
 import {
   ENROLLMENT_BADGE,
@@ -73,12 +74,15 @@ export default function DashboardPage() {
           hint="7 ngày tới"
           icon={<CalendarDays size={20} />}
         />
-        <StatCard
-          label="Doanh thu ghi nhận"
-          value={formatVND(revenue)}
-          hint={`${payments.length} chứng từ`}
-          icon={<Receipt size={20} />}
-        />
+        {/* Finance is hidden from roles without payment access (e.g. teachers). */}
+        {can(user.role, "payment.view") && (
+          <StatCard
+            label="Doanh thu ghi nhận"
+            value={formatVND(revenue)}
+            hint={`${payments.length} chứng từ`}
+            icon={<Receipt size={20} />}
+          />
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

@@ -206,6 +206,16 @@ export const useDataStore = create<DataState>()(
 
       hydrateFromBackend: async (token) => {
         if (!hasRemoteBackend()) return;
+        // Role-restricted slices start empty, so a list this role is refused
+        // (e.g. payments for a teacher) never shows stale data persisted from
+        // a previous user on this machine.
+        set({
+          paymentDocs: [],
+          attendance: [],
+          homework: [],
+          auditLogs: [],
+          notifications: [],
+        });
         // Each list is role-gated server-side; swallow forbidden ones and keep
         // the seeded slice so name lookups still work for that role.
         const load = async <T>(fn: () => Promise<T>, apply: (v: T) => void) => {
