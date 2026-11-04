@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { GraduationCap, LogIn } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
-import { seedUsers } from "@/data/seed";
-import { ROLE_LABELS } from "@/lib/labels";
 
 export default function LoginPage() {
   const login = useAuthStore((s) => s.login);
@@ -18,12 +16,6 @@ export default function LoginPage() {
     setBusy(false);
     if (!res.ok) setError(res.error);
     // On success the auth store sets currentUser and App re-routes automatically.
-  };
-
-  const quickFill = (em: string, pw: string) => {
-    setEmail(em);
-    setPassword(pw);
-    setError("");
   };
 
   return (
@@ -77,32 +69,14 @@ export default function LoginPage() {
               />
             </div>
             {error && <p className="text-sm text-rose-600">{error}</p>}
-            <button type="submit" className="btn-primary w-full" disabled={busy}>
+            <button
+              type="submit"
+              className="btn-primary w-full"
+              disabled={busy}
+            >
               <LogIn size={16} /> {busy ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
           </form>
-
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-              Tài khoản demo (nhấn để điền)
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {seedUsers.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => quickFill(u.email, u.password ?? "")}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-left text-xs hover:border-brand-300 hover:bg-brand-50"
-                >
-                  <span className="block font-medium text-slate-700">
-                    {ROLE_LABELS[u.role]}
-                  </span>
-                  <span className="block truncate text-slate-400">
-                    {u.email}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
