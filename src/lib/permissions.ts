@@ -10,6 +10,7 @@ export type Capability =
   | "schedule.view"
   | "schedule.edit"
   | "students.view"
+  | "students.create"
   | "students.edit"
   | "attendance.mark"
   | "attendance.view"
@@ -28,6 +29,7 @@ const MATRIX: Record<Role, Capability[]> = {
     "schedule.view",
     "schedule.edit",
     "students.view",
+    "students.create",
     "students.edit",
     "attendance.mark",
     "attendance.view",
@@ -42,11 +44,12 @@ const MATRIX: Record<Role, Capability[]> = {
   teacher: [
     "schedule.view",
     "students.view",
+    "students.create", // add new students, not edit existing
     "attendance.mark",
     "attendance.view",
     "homework.record",
   ],
-  salesperson: ["students.view", "students.edit", "payment.view", "sales.view"],
+  salesperson: ["students.view", "students.create", "students.edit", "payment.view", "sales.view"],
   finance_staff: [
     "students.view",
     "payment.upload",

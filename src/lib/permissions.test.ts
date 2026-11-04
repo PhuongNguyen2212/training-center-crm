@@ -5,6 +5,7 @@ const ALL: Capability[] = [
   "schedule.view",
   "schedule.edit",
   "students.view",
+  "students.create",
   "students.edit",
   "attendance.mark",
   "attendance.view",
@@ -31,6 +32,12 @@ describe("Ma trận phân quyền (CLAUDE.md)", () => {
   it("giáo viên xem được lịch nhưng KHÔNG sửa lịch", () => {
     expect(can("teacher", "schedule.view")).toBe(true);
     expect(can("teacher", "schedule.edit")).toBe(false);
+  });
+
+  it("giáo viên thêm được học viên mới nhưng KHÔNG sửa học viên", () => {
+    expect(can("teacher", "students.create")).toBe(true);
+    expect(can("teacher", "students.edit")).toBe(false);
+    expect(can("finance_staff", "students.create")).toBe(false);
   });
 
   it("chỉ admin được xóa chứng từ thanh toán", () => {
