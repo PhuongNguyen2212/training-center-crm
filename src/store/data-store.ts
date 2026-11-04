@@ -68,8 +68,6 @@ export interface DataState {
   homework: Homework[];
   paymentDocs: PaymentDoc[];
   auditLogs: AuditLog[];
-  /** Roster-activity notifications, broadcast to everyone (powers the bell). */
-  notifications: AuditLog[];
 
   // --- Audit ---
   addAudit: (userId: string, action: string, detail: string) => void;
@@ -161,16 +159,8 @@ export interface DataState {
   ) => Promise<void>;
   deleteSession: (id: string, actorId: string) => Promise<void>;
   // Session roster: students attending a session (attendance is marked on it).
-  addSessionStudents: (
-    sessionId: string,
-    studentIds: string[],
-    actorId: string,
-  ) => Promise<void>;
-  removeSessionStudent: (
-    sessionId: string,
-    studentId: string,
-    actorId: string,
-  ) => Promise<void>;
+  addSessionStudents: (sessionId: string, studentIds: string[]) => Promise<void>;
+  removeSessionStudent: (sessionId: string, studentId: string) => Promise<void>;
   // Merge events pulled from Google: upsert by google_event_id, keep local-only.
   upsertSessionsFromGoogle: (
     incoming: Omit<Session, "id" | "studentIds">[],
@@ -188,7 +178,6 @@ const initialData = () => ({
   homework: seedHomework,
   paymentDocs: seedPaymentDocs,
   auditLogs: seedAuditLogs,
-  notifications: [],
 });
 
 export const useDataStore = create<DataState>()(
@@ -214,7 +203,6 @@ export const useDataStore = create<DataState>()(
           attendance: [],
           homework: [],
           auditLogs: [],
-          notifications: [],
         });
         // Each list is role-gated server-side; swallow forbidden ones and keep
         // the seeded slice so name lookups still work for that role.
@@ -237,10 +225,6 @@ export const useDataStore = create<DataState>()(
           load(
             () => backend.listAudit(token),
             (v) => set({ auditLogs: v }),
-          ),
-          load(
-            () => backend.listClassNotifications(token),
-            (v) => set({ notifications: v }),
           ),
           load(
             () => backend.listSessions(token),
@@ -724,7 +708,7 @@ export const useDataStore = create<DataState>()(
         }
       },
 
-      addSessionStudents: async (sessionId, studentIds, actorId) => {
+      addSessionStudents: async (sessionId, studentIds) => {
         if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
@@ -750,14 +734,9 @@ export const useDataStore = create<DataState>()(
               : se,
           ),
         }));
-        get().addAudit(
-          actorId,
-          "roster.add",
-          `Thêm ${fresh.length} học viên vào buổi ${ses.title}`,
-        );
       },
 
-      removeSessionStudent: async (sessionId, studentId, actorId) => {
+      removeSessionStudent: async (sessionId, studentId) => {
         if (hasRemoteBackend()) {
           const token = authToken();
           if (token) {
@@ -782,7 +761,6 @@ export const useDataStore = create<DataState>()(
             "Học viên đã được điểm danh ở buổi này nên không thể rút khỏi danh sách.",
           );
         }
-        const ses = get().sessions.find((se) => se.id === sessionId);
         set((s) => ({
           sessions: s.sessions.map((se) =>
             se.id === sessionId
@@ -790,12 +768,6 @@ export const useDataStore = create<DataState>()(
               : se,
           ),
         }));
-        const st = get().students.find((x) => x.id === studentId);
-        get().addAudit(
-          actorId,
-          "roster.remove",
-          `Rút ${st?.name ?? studentId} khỏi buổi ${ses?.title ?? sessionId}`,
-        );
       },
 
       upsertSessionsFromGoogle: async (incoming, actorId) => {

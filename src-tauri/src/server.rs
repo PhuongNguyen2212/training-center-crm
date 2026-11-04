@@ -7,7 +7,7 @@ use crate::auth::{LoginGuard, Sessions};
 use crate::commands::attendance::{
     list_attendance_impl, list_homework_impl, mark_attendance_impl, set_homework_impl,
 };
-use crate::commands::audit::{list_audit_impl, list_class_notifications_impl};
+use crate::commands::audit::list_audit_impl;
 use crate::commands::auth::{change_own_password_impl, login_impl, me_impl};
 use crate::commands::payments::{
     create_payment_doc_impl, list_payment_docs_impl, read_payment_doc_impl,
@@ -222,12 +222,9 @@ async fn sessions_remove_student(
     .await)
 }
 
-// ---- Audit + notifications ----
+// ---- Audit ----
 async fn audit_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
     out(list_audit_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
-}
-async fn notifications_list(State(st): State<AppState>, headers: HeaderMap) -> Response {
-    out(list_class_notifications_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 
 // ---- Sessions (buổi học) ----
@@ -466,7 +463,6 @@ fn build_router(state: AppState) -> Router {
             put(students_update).delete(students_delete),
         )
         .route("/api/audit", get(audit_list))
-        .route("/api/notifications", get(notifications_list))
         .route("/api/sessions", get(sessions_list).post(sessions_create))
         .route(
             "/api/sessions/:id",

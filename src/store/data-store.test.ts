@@ -112,18 +112,15 @@ describe("Học viên — thêm mới (store action)", () => {
 describe("Danh sách học viên theo buổi", () => {
   it("thêm học viên vào buổi, không tạo trùng", async () => {
     const s = useDataStore.getState();
-    await s.addSessionStudents("ses-4", ["s-1"], "u-admin");
-    await s.addSessionStudents("ses-4", ["s-1", "s-2"], "u-admin");
+    await s.addSessionStudents("ses-4", ["s-1"]);
+    await s.addSessionStudents("ses-4", ["s-1", "s-2"]);
     const ses = useDataStore.getState().sessions.find((x) => x.id === "ses-4")!;
     expect(ses.studentIds.filter((id) => id === "s-1")).toHaveLength(1);
     expect(ses.studentIds).toContain("s-2");
-    expect(
-      useDataStore.getState().auditLogs.some((l) => l.action === "roster.add"),
-    ).toBe(true);
   });
 
   it("rút học viên chưa điểm danh khỏi buổi", async () => {
-    await useDataStore.getState().removeSessionStudent("ses-3", "s-1", "u-admin");
+    await useDataStore.getState().removeSessionStudent("ses-3", "s-1");
     const ses = useDataStore.getState().sessions.find((x) => x.id === "ses-3")!;
     expect(ses.studentIds).not.toContain("s-1");
   });
@@ -131,7 +128,7 @@ describe("Danh sách học viên theo buổi", () => {
   it("BUG GUARD: KHÔNG rút được học viên đã điểm danh (bằng chứng tham gia)", async () => {
     useDataStore.getState().markAttendance("s-2", "ses-3", "present", "u-teacher-1");
     await expect(
-      useDataStore.getState().removeSessionStudent("ses-3", "s-2", "u-admin"),
+      useDataStore.getState().removeSessionStudent("ses-3", "s-2"),
     ).rejects.toThrow();
     const ses = useDataStore.getState().sessions.find((x) => x.id === "ses-3")!;
     expect(ses.studentIds).toContain("s-2");

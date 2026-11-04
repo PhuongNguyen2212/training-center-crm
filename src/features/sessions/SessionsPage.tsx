@@ -81,7 +81,9 @@ export default function SessionsPage() {
   const visible = useMemo(
     () =>
       [...sessions]
-        .filter((s) => (user.role === "teacher" ? s.teacherId === user.id : true))
+        .filter((s) =>
+          user.role === "teacher" ? s.teacherId === user.id : true,
+        )
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
     [sessions, user.role, user.id],
   );
@@ -92,8 +94,9 @@ export default function SessionsPage() {
     const now = Date.now();
     const startOfToday = new Date().setHours(0, 0, 0, 0);
     const upcoming = visible.find((s) => +new Date(s.endTime) >= startOfToday);
-    return (upcoming ?? visible.filter((s) => +new Date(s.startTime) < now).pop())
-      ?.id;
+    return (
+      upcoming ?? visible.filter((s) => +new Date(s.startTime) < now).pop()
+    )?.id;
   }, [visible]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -127,11 +130,15 @@ export default function SessionsPage() {
   const historyFor = (studentId: string) =>
     selected
       ? attendance
-          .filter((a) => a.sessionId === selected.id && a.studentId === studentId)
+          .filter(
+            (a) => a.sessionId === selected.id && a.studentId === studentId,
+          )
           .sort((a, b) => +new Date(a.markedAt) - +new Date(b.markedAt))
       : [];
 
-  const markedCount = roster.filter((st) => historyFor(st.id).length > 0).length;
+  const markedCount = roster.filter(
+    (st) => historyFor(st.id).length > 0,
+  ).length;
 
   // ---- Google sync (web demo only; the backend pushes to Google itself) ----
   const pull = async () => {
@@ -188,13 +195,24 @@ export default function SessionsPage() {
         actions={
           <div className="flex gap-2">
             {!hasRemoteBackend() && googleConfigured && !connected && (
-              <button className="btn-outline" onClick={handleConnect} disabled={syncing}>
+              <button
+                className="btn-outline"
+                onClick={handleConnect}
+                disabled={syncing}
+              >
                 <Plug size={16} /> Kết nối Google
               </button>
             )}
             {!hasRemoteBackend() && (
-              <button className="btn-outline" onClick={handleSync} disabled={syncing}>
-                <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+              <button
+                className="btn-outline"
+                onClick={handleSync}
+                disabled={syncing}
+              >
+                <RefreshCw
+                  size={16}
+                  className={syncing ? "animate-spin" : ""}
+                />
                 {syncing ? "Đang đồng bộ..." : "Đồng bộ"}
               </button>
             )}
@@ -278,7 +296,9 @@ export default function SessionsPage() {
                         <button
                           onClick={() => setSelectedId(s.id)}
                           className={`flex w-full flex-col items-start px-4 py-2.5 text-left transition ${
-                            selected?.id === s.id ? "bg-brand-50" : "hover:bg-slate-50"
+                            selected?.id === s.id
+                              ? "bg-brand-50"
+                              : "hover:bg-slate-50"
                           }`}
                         >
                           <span className="text-sm font-medium text-slate-800">
@@ -315,8 +335,10 @@ export default function SessionsPage() {
                     {selected.title}
                   </h2>
                   <p className="text-sm text-slate-500">
-                    {formatDate(selected.startTime)} · {formatTime(selected.startTime)}–
-                    {formatTime(selected.endTime)} · GV: {teacherName(selected.teacherId)}
+                    {formatDate(selected.startTime)} ·{" "}
+                    {formatTime(selected.startTime)}–
+                    {formatTime(selected.endTime)} · GV:{" "}
+                    {teacherName(selected.teacherId)}
                   </p>
                 </div>
                 {canEditOwn && (
@@ -343,7 +365,8 @@ export default function SessionsPage() {
 
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800">
-                  <Users size={17} className="text-brand-500" /> Học viên ({roster.length})
+                  <Users size={17} className="text-brand-500" /> Học viên (
+                  {roster.length})
                   {roster.length > 0 && (
                     <span className="text-xs font-normal text-slate-400">
                       · đã điểm danh {markedCount}/{roster.length}
@@ -352,10 +375,16 @@ export default function SessionsPage() {
                 </h3>
                 {canMark && (
                   <div className="flex gap-2">
-                    <button className="btn-outline" onClick={() => setCopyOpen(true)}>
+                    <button
+                      className="btn-outline"
+                      onClick={() => setCopyOpen(true)}
+                    >
                       <Copy size={15} /> Lấy từ buổi khác
                     </button>
-                    <button className="btn-outline" onClick={() => setAddOpen(true)}>
+                    <button
+                      className="btn-outline"
+                      onClick={() => setAddOpen(true)}
+                    >
                       <UserPlus size={15} /> Thêm học viên
                     </button>
                   </div>
@@ -364,8 +393,9 @@ export default function SessionsPage() {
 
               <div className="mb-4 flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-700">
                 <Info size={14} className="mt-0.5 shrink-0" />
-                Điểm danh là bằng chứng tham gia học: khi sửa, hệ thống tạo bản ghi
-                mới (override). Học viên đã được điểm danh không thể rút khỏi buổi.
+                Điểm danh là bằng chứng tham gia học: khi sửa, hệ thống tạo bản
+                ghi mới (override). Học viên đã được điểm danh không thể rút
+                khỏi buổi.
               </div>
 
               {roster.length === 0 ? (
@@ -376,25 +406,36 @@ export default function SessionsPage() {
                     const history = historyFor(st.id);
                     const latest = history[history.length - 1];
                     return (
-                      <div key={st.id} className="rounded-lg border border-slate-100 p-3">
+                      <div
+                        key={st.id}
+                        className="rounded-lg border border-slate-100 p-3"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
                               {st.name.charAt(0)}
                             </span>
                             <div>
-                              <p className="text-sm font-medium text-slate-800">{st.name}</p>
+                              <p className="text-sm font-medium text-slate-800">
+                                {st.name}
+                              </p>
                               {latest ? (
                                 <span className="flex items-center gap-1 text-xs text-slate-400">
-                                  <Badge className={ATTENDANCE_BADGE[latest.status]}>
+                                  <Badge
+                                    className={ATTENDANCE_BADGE[latest.status]}
+                                  >
                                     {ATTENDANCE_LABELS[latest.status]}
                                   </Badge>
                                   {latest.isOverride && (
-                                    <span className="text-amber-600">(đã ghi đè)</span>
+                                    <span className="text-amber-600">
+                                      (đã ghi đè)
+                                    </span>
                                   )}
                                 </span>
                               ) : (
-                                <span className="text-xs text-slate-300">Chưa điểm danh</span>
+                                <span className="text-xs text-slate-300">
+                                  Chưa điểm danh
+                                </span>
                               )}
                             </div>
                           </div>
@@ -405,7 +446,14 @@ export default function SessionsPage() {
                                 <button
                                   key={status}
                                   onClick={() =>
-                                    notify(markAttendance(st.id, selected.id, status, user.id))
+                                    notify(
+                                      markAttendance(
+                                        st.id,
+                                        selected.id,
+                                        status,
+                                        user.id,
+                                      ),
+                                    )
                                   }
                                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                                     latest?.status === status
@@ -421,7 +469,9 @@ export default function SessionsPage() {
                                   className="btn-ghost ml-1 p-1.5 text-rose-600 hover:bg-rose-50"
                                   title="Rút khỏi buổi"
                                   onClick={() =>
-                                    notify(removeSessionStudent(selected.id, st.id, user.id))
+                                    notify(
+                                      removeSessionStudent(selected.id, st.id),
+                                    )
                                   }
                                 >
                                   <UserMinus size={15} />
@@ -438,10 +488,17 @@ export default function SessionsPage() {
                             </p>
                             <ul className="space-y-0.5">
                               {history.map((h) => (
-                                <li key={h.id} className="text-xs text-slate-500">
-                                  {formatDateTime(h.markedAt)} — {ATTENDANCE_LABELS[h.status]}
+                                <li
+                                  key={h.id}
+                                  className="text-xs text-slate-500"
+                                >
+                                  {formatDateTime(h.markedAt)} —{" "}
+                                  {ATTENDANCE_LABELS[h.status]}
                                   {h.isOverride && (
-                                    <span className="text-amber-600"> (override)</span>
+                                    <span className="text-amber-600">
+                                      {" "}
+                                      (override)
+                                    </span>
                                   )}
                                 </li>
                               ))}
@@ -489,7 +546,7 @@ export default function SessionsPage() {
           )}
           onClose={() => setAddOpen(false)}
           onAdd={(studentId) =>
-            notify(addSessionStudents(selected.id, [studentId], user.id))
+            notify(addSessionStudents(selected.id, [studentId]))
           }
         />
       )}
@@ -501,7 +558,7 @@ export default function SessionsPage() {
           )}
           onClose={() => setCopyOpen(false)}
           onCopy={(source) => {
-            notify(addSessionStudents(selected.id, source.studentIds, user.id));
+            notify(addSessionStudents(selected.id, source.studentIds));
             setCopyOpen(false);
           }}
         />
@@ -542,9 +599,14 @@ function AddStudentsModal({
             <li key={s.id} className="flex items-center justify-between py-2">
               <span className="text-sm text-slate-700">
                 {s.name}
-                {s.phone && <span className="ml-2 text-xs text-slate-400">{s.phone}</span>}
+                {s.phone && (
+                  <span className="ml-2 text-xs text-slate-400">{s.phone}</span>
+                )}
               </span>
-              <button className="btn-outline px-2 py-1 text-xs" onClick={() => onAdd(s.id)}>
+              <button
+                className="btn-outline px-2 py-1 text-xs"
+                onClick={() => onAdd(s.id)}
+              >
                 <UserPlus size={13} /> Thêm
               </button>
             </li>
@@ -571,7 +633,8 @@ function CopyRosterModal({
   return (
     <Modal open title="Lấy danh sách học viên từ buổi khác" onClose={onClose}>
       <p className="mb-3 text-sm text-slate-500">
-        Học viên của buổi được chọn sẽ được thêm vào buổi này (bỏ qua người đã có).
+        Học viên của buổi được chọn sẽ được thêm vào buổi này (bỏ qua người đã
+        có).
       </p>
       {list.length === 0 ? (
         <p className="py-6 text-center text-sm text-slate-400">
@@ -580,14 +643,20 @@ function CopyRosterModal({
       ) : (
         <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto">
           {list.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-3 py-2">
+            <li
+              key={s.id}
+              className="flex items-center justify-between gap-3 py-2"
+            >
               <div>
                 <p className="text-sm font-medium text-slate-700">{s.title}</p>
                 <p className="text-xs text-slate-400">
                   {formatDate(s.startTime)} · {formatTime(s.startTime)}
                 </p>
               </div>
-              <button className="btn-outline px-2 py-1 text-xs" onClick={() => onCopy(s)}>
+              <button
+                className="btn-outline px-2 py-1 text-xs"
+                onClick={() => onCopy(s)}
+              >
                 <Copy size={13} /> Chép {s.studentIds.length} học viên
               </button>
             </li>

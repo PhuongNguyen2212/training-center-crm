@@ -95,19 +95,6 @@ pub(crate) async fn ensure_session_access(
     Ok(())
 }
 
-async fn session_title(conn: &Connection, id: &str) -> String {
-    query_opt(
-        conn,
-        "SELECT title FROM sessions WHERE id=?1",
-        libsql::params![id.to_string()],
-        |r| r.get::<String>(0),
-    )
-    .await
-    .ok()
-    .flatten()
-    .unwrap_or_else(|| id.to_string())
-}
-
 // ---- Transport-agnostic logic ----
 
 pub async fn list_sessions_impl(
@@ -362,7 +349,6 @@ pub async fn add_session_students_impl(
     require_capability(&user, Capability::AttendanceMark)?;
     ensure_session_access(&db.conn, &user, &session_id).await?;
     let now = now_iso();
-    let mut added = 0u64;
     for student_id in &student_ids {
         let exists = query_opt(
             &db.conn,
@@ -375,8 +361,7 @@ pub async fn add_session_students_impl(
         if !exists {
             return Err(AppError::new("Không tìm thấy học viên."));
         }
-        added += db
-            .conn
+        db.conn
             .execute(
                 "INSERT OR IGNORE INTO session_students (session_id,student_id,added_by,added_at)
                  VALUES (?1,?2,?3,?4)",
@@ -388,23 +373,6 @@ pub async fn add_session_students_impl(
                 ],
             )
             .await?;
-    }
-    if added > 0 {
-        let title = session_title(&db.conn, &session_id).await;
-        let detail = if let [only] = student_ids.as_slice() {
-            let name = query_opt(
-                &db.conn,
-                "SELECT name FROM students WHERE id=?1",
-                libsql::params![only.clone()],
-                |r| r.get::<String>(0),
-            )
-            .await?
-            .unwrap_or_else(|| only.clone());
-            format!("Thêm {name} vào buổi {title}")
-        } else {
-            format!("Thêm {added} học viên vào buổi {title}")
-        };
-        write_audit(&db.conn, &user.id, "roster.add", &detail).await?;
     }
     one_session(&db.conn, &session_id).await
 }
@@ -434,31 +402,12 @@ pub async fn remove_session_student_impl(
             "Học viên đã được điểm danh ở buổi này nên không thể rút khỏi danh sách.",
         ));
     }
-    let removed = db
-        .conn
+    db.conn
         .execute(
             "DELETE FROM session_students WHERE session_id=?1 AND student_id=?2",
             libsql::params![session_id.clone(), student_id.clone()],
         )
         .await?;
-    if removed > 0 {
-        let title = session_title(&db.conn, &session_id).await;
-        let name = query_opt(
-            &db.conn,
-            "SELECT name FROM students WHERE id=?1",
-            libsql::params![student_id.clone()],
-            |r| r.get::<String>(0),
-        )
-        .await?
-        .unwrap_or_else(|| student_id.clone());
-        write_audit(
-            &db.conn,
-            &user.id,
-            "roster.remove",
-            &format!("Rút {name} khỏi buổi {title}"),
-        )
-        .await?;
-    }
     one_session(&db.conn, &session_id).await
 }
 

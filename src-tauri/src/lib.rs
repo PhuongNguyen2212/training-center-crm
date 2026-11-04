@@ -145,7 +145,6 @@ pub fn run() {
             commands::staff::update_user_role,
             commands::staff::reset_user_password,
             commands::audit::list_audit,
-            commands::audit::list_class_notifications,
             commands::sessions::list_sessions,
             commands::sessions::create_session,
             commands::sessions::update_session,

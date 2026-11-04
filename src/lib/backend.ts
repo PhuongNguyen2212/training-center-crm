@@ -137,11 +137,9 @@ export const backend = {
   resetUserPassword: (token: string, id: string, password: string) =>
     call<void>("reset_user_password", { token, id, password }, { method: "POST", path: `/api/users/${id}/password`, token, body: { password } }),
 
-  // Audit + notifications
+  // Audit
   listAudit: (token: string) =>
     call<AuditLog[]>("list_audit", { token }, { method: "GET", path: "/api/audit", token }),
-  listClassNotifications: (token: string) =>
-    call<AuditLog[]>("list_class_notifications", { token }, { method: "GET", path: "/api/notifications", token }),
 
 
   // Sessions
