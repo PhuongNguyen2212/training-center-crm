@@ -255,6 +255,22 @@ pub async fn delete_session_impl(
     } else if !user.is_admin() {
         return Err(AppError::new("Bạn không có quyền xóa buổi học."));
     }
+    // Attendance is proof of participation and is never deleted, so a session
+    // that has any (or homework) can't be removed either.
+    let has_records = query_opt(
+        &db.conn,
+        "SELECT 1 FROM attendance WHERE session_id=?1
+         UNION ALL SELECT 1 FROM homework WHERE session_id=?1 LIMIT 1",
+        libsql::params![id.clone()],
+        |r| r.get::<i64>(0),
+    )
+    .await?
+    .is_some();
+    if has_records {
+        return Err(AppError::new(
+            "Buổi học đã có điểm danh hoặc bài tập nên không thể xóa.",
+        ));
+    }
     let eid = google_event_id(&db.conn, &id).await?;
     db.conn
         .execute(
