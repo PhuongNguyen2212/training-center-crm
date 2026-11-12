@@ -108,7 +108,6 @@ export interface CalendarSession {
   startTime: string; // ISO
   endTime: string; // ISO
   teacherId: string | null;
-  classId: string | null;
 }
 
 interface GEvent {
@@ -126,7 +125,6 @@ function eventToSession(e: GEvent): CalendarSession {
     startTime: e.start?.dateTime ?? e.start?.date ?? new Date().toISOString(),
     endTime: e.end?.dateTime ?? e.end?.date ?? new Date().toISOString(),
     teacherId: e.extendedProperties?.private?.teacherId || null,
-    classId: e.extendedProperties?.private?.classId || null,
   };
 }
 
@@ -138,7 +136,6 @@ function sessionToEvent(s: Omit<CalendarSession, "googleEventId">) {
     extendedProperties: {
       private: {
         teacherId: s.teacherId ?? "",
-        classId: s.classId ?? "",
       },
     },
   };

@@ -19,24 +19,6 @@ export const USER_STATUS_LABELS: Record<"active" | "suspended", string> = {
   suspended: "Bị treo",
 };
 
-export const CLASS_STATUS_LABELS: Record<
-  "active" | "completed" | "archived",
-  string
-> = {
-  active: "Đang học",
-  completed: "Đã kết thúc",
-  archived: "Lưu trữ",
-};
-
-export const CLASS_STATUS_BADGE: Record<
-  "active" | "completed" | "archived",
-  string
-> = {
-  active: "bg-emerald-100 text-emerald-800",
-  completed: "bg-sky-100 text-sky-800",
-  archived: "bg-slate-200 text-slate-600",
-};
-
 export const ENROLLMENT_LABELS: Record<EnrollmentStatus, string> = {
   prospect: "Tiềm năng",
   confirmed: "Đã xác nhận",

@@ -137,6 +137,7 @@ pub enum Capability {
     ScheduleView,
     ScheduleEdit,
     StudentView,
+    StudentCreate,
     StudentEdit,
     StudentDelete,
     AttendanceView,
@@ -161,6 +162,9 @@ impl Capability {
             ScheduleView => &[ADMIN, TEACHER],
             ScheduleEdit => &[ADMIN],
             StudentView => &[ADMIN, TEACHER, SALESPERSON, FINANCE],
+            // Teachers may add new students (e.g. a walk-in at their session)
+            // but not edit or delete existing ones.
+            StudentCreate => &[ADMIN, SALESPERSON, TEACHER],
             StudentEdit => &[ADMIN, SALESPERSON],
             StudentDelete => &[ADMIN],
             AttendanceView | AttendanceMark => &[ADMIN, TEACHER],
@@ -283,6 +287,7 @@ mod tests {
             ScheduleView,
             ScheduleEdit,
             StudentView,
+            StudentCreate,
             StudentEdit,
             StudentDelete,
             AttendanceView,
@@ -325,6 +330,17 @@ mod tests {
         assert!(require_capability(&sales, Capability::StudentEdit).is_ok());
         assert!(require_capability(&sales, Capability::ScheduleView).is_err());
         assert!(require_capability(&sales, Capability::AttendanceView).is_err());
+    }
+
+    #[test]
+    fn teacher_creates_students_but_cannot_edit_or_delete_them() {
+        let teacher = AuthUser {
+            id: "t".into(),
+            role: "teacher".into(),
+        };
+        assert!(require_capability(&teacher, Capability::StudentCreate).is_ok());
+        assert!(require_capability(&teacher, Capability::StudentEdit).is_err());
+        assert!(require_capability(&teacher, Capability::StudentDelete).is_err());
     }
 
     #[test]

@@ -128,7 +128,12 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         const { token } = get();
-        if (hasRemoteBackend() && token) backend.logout(token).catch(() => {});
+        if (hasRemoteBackend() && token) {
+          backend.logout(token).catch(() => {});
+          // Don't leave this user's data (payments, attendance…) in the
+          // browser's persisted store for whoever logs in next.
+          useDataStore.getState().resetData();
+        }
         set({ currentUser: null, token: null });
       },
 

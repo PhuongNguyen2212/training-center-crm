@@ -92,7 +92,7 @@ pub async fn create_student_impl(
     sessions: &Sessions,
 ) -> AppResult<Student> {
     let user = current_user(db, sessions, token).await?;
-    require_capability(&user, Capability::StudentEdit)?;
+    require_capability(&user, Capability::StudentCreate)?;
     validate(&input)?;
 
     let id = new_id();

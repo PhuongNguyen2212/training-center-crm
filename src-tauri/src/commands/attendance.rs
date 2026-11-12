@@ -1,9 +1,10 @@
-use crate::auth::{current_user, require_capability, write_audit, AuthUser, Capability, Sessions};
+use crate::auth::{current_user, require_capability, write_audit, Capability, Sessions};
+use crate::commands::sessions::ensure_session_access;
 use crate::db::{query_all, query_opt, Db};
 use crate::error::{AppError, AppResult};
 use crate::models::{Attendance, Homework};
 use crate::util::{new_id, now_iso};
-use libsql::{Connection, Row};
+use libsql::Row;
 #[cfg(feature = "desktop")]
 use tauri::State;
 
@@ -27,30 +28,6 @@ fn map_homework(r: &Row) -> libsql::Result<Homework> {
         status: r.get(3)?,
         recorded_by: r.get(4)?,
     })
-}
-
-/// A teacher may only touch sessions of their own classes (admin: any).
-async fn ensure_session_access(
-    conn: &Connection,
-    user: &AuthUser,
-    session_id: &str,
-) -> AppResult<()> {
-    if !user.is_teacher() {
-        return Ok(());
-    }
-    let owns = query_opt(
-        conn,
-        "SELECT id FROM sessions WHERE id=?1 AND teacher_id=?2",
-        libsql::params![session_id.to_string(), user.id.clone()],
-        |r| r.get::<String>(0),
-    )
-    .await?;
-    if owns.is_none() {
-        return Err(AppError::new(
-            "Bạn chỉ thao tác được trên buổi học của lớp mình.",
-        ));
-    }
-    Ok(())
 }
 
 // ---- Transport-agnostic logic ----
@@ -94,7 +71,24 @@ pub async fn mark_attendance_impl(
 ) -> AppResult<Attendance> {
     let user = current_user(db, sessions, token).await?;
     require_capability(&user, Capability::AttendanceMark)?;
+    if !["present", "absent", "late", "excused"].contains(&status.as_str()) {
+        return Err(AppError::new("Trạng thái điểm danh không hợp lệ."));
+    }
     ensure_session_access(&db.conn, &user, &session_id).await?;
+    // Only students on this session's roster can be marked.
+    let on_roster = query_opt(
+        &db.conn,
+        "SELECT 1 FROM session_students WHERE session_id=?1 AND student_id=?2",
+        libsql::params![session_id.clone(), student_id.clone()],
+        |r| r.get::<i64>(0),
+    )
+    .await?
+    .is_some();
+    if !on_roster {
+        return Err(AppError::new(
+            "Học viên không có trong danh sách buổi học này.",
+        ));
+    }
 
     let existing = query_opt(
         &db.conn,

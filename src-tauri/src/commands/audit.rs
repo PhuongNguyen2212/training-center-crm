@@ -24,23 +24,6 @@ fn map_audit(r: &Row) -> libsql::Result<AuditLog> {
 
 // ---- Transport-agnostic logic ----
 
-/// Class-activity notifications (enroll/unenroll/create/delete/...). Broadcast to
-/// EVERY logged-in user — unscoped, unlike the personal audit log.
-pub async fn list_class_notifications_impl(
-    token: &str,
-    db: &Db,
-    sessions: &Sessions,
-) -> AppResult<Vec<AuditLog>> {
-    current_user(db, sessions, token).await?; // any authenticated user
-    query_all(
-        &db.conn,
-        &format!("SELECT {COLS} {FROM} WHERE a.action LIKE 'class.%' ORDER BY a.created_at DESC LIMIT 50"),
-        (),
-        map_audit,
-    )
-    .await
-}
-
 pub async fn list_audit_impl(
     token: &str,
     db: &Db,
@@ -70,16 +53,6 @@ pub async fn list_audit_impl(
 }
 
 // ---- Tauri command wrappers ----
-
-#[cfg(feature = "desktop")]
-#[tauri::command]
-pub async fn list_class_notifications(
-    token: String,
-    db: State<'_, Db>,
-    sessions: State<'_, Sessions>,
-) -> AppResult<Vec<AuditLog>> {
-    list_class_notifications_impl(&token, &db.fresh(), &sessions).await
-}
 
 #[cfg(feature = "desktop")]
 #[tauri::command]

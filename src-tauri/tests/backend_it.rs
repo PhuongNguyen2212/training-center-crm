@@ -132,6 +132,10 @@ async fn attendance_is_append_only_with_override_on_recorrection() {
         )
         .await
         .unwrap();
+    // Attendance is only accepted for students on the session roster.
+    add_session_students_impl(&token, "sess-1".into(), vec!["s-1".into()], &db, &sessions)
+        .await
+        .unwrap();
 
     // First mark: not an override.
     let first = mark_attendance_impl(

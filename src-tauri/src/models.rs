@@ -56,19 +56,6 @@ pub struct LoginResponse {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Class {
-    pub id: String,
-    pub name: String,
-    pub course_name: String,
-    pub teacher_id: Option<String>,
-    pub student_ids: Vec<String>,
-    pub status: String,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Session {
     pub id: String,
     pub google_event_id: Option<String>,
@@ -76,7 +63,8 @@ pub struct Session {
     pub start_time: String,
     pub end_time: String,
     pub teacher_id: Option<String>,
-    pub class_id: Option<String>,
+    /// Roster: students expected at this session, in the order they were added.
+    pub student_ids: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -132,21 +120,12 @@ pub struct StudentInput {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClassInput {
-    pub name: String,
-    pub course_name: String,
-    pub teacher_id: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SessionInput {
     pub google_event_id: Option<String>,
     pub title: String,
     pub start_time: String,
     pub end_time: String,
     pub teacher_id: Option<String>,
-    pub class_id: Option<String>,
 }
 
 #[derive(Deserialize)]

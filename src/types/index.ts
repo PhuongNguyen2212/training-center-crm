@@ -7,7 +7,6 @@ export type UserStatus = "active" | "suspended";
 
 export type EnrollmentStatus = "prospect" | "confirmed" | "dropped";
 
-export type ClassStatus = "active" | "completed" | "archived";
 
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
@@ -46,17 +45,6 @@ export interface Student {
   deletedAt: string | null; // soft delete
 }
 
-export interface Class {
-  id: string;
-  name: string; // Tên lớp, vd "Lớp Giao tiếp A"
-  courseName: string; // Khóa học, vd "Giao tiếp tiếng Anh"
-  teacherId: string | null; // Giáo viên phụ trách
-  studentIds: string[]; // Học viên đã ghi danh vào lớp
-  status: ClassStatus;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface Session {
   id: string;
   googleEventId: string | null;
@@ -64,7 +52,7 @@ export interface Session {
   startTime: string; // ISO
   endTime: string; // ISO
   teacherId: string | null;
-  classId: string | null;
+  studentIds: string[]; // Học viên của buổi này (điểm danh theo danh sách này)
 }
 
 export interface Attendance {

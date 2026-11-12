@@ -8,7 +8,6 @@ import { can } from "@/lib/permissions";
 import { ROLE_LABELS } from "@/lib/labels";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
-import { NotificationBell } from "@/components/NotificationBell";
 import { Toaster } from "@/components/Toaster";
 import { backend, hasRemoteBackend } from "@/lib/backend";
 
@@ -153,7 +152,6 @@ export default function AppLayout() {
             <Menu size={20} />
           </button>
           <div className="flex-1" />
-          <NotificationBell />
         </div>
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
           <Outlet />

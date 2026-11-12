@@ -34,6 +34,7 @@ export default function StudentsPage() {
   const [submitError, setSubmitError] = useState("");
 
   const canView = can(user.role, "students.view");
+  const canCreate = can(user.role, "students.create");
   const canEdit = can(user.role, "students.edit");
   const isSalesperson = user.role === "salesperson";
 
@@ -125,7 +126,7 @@ export default function StudentsPage() {
             >
               <Download size={16} /> Xuất CSV
             </button>
-            {canEdit && (
+            {canCreate && (
               <button className="btn-primary" onClick={openCreate}>
                 <Plus size={16} /> Thêm học viên
               </button>

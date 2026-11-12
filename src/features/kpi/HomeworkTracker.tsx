@@ -11,7 +11,6 @@ export default function HomeworkTracker() {
   const user = useAuthStore((s) => s.currentUser)!;
   const sessions = useDataStore((s) => s.sessions);
   const students = useDataStore((s) => s.students);
-  const classes = useDataStore((s) => s.classes);
   const homework = useDataStore((s) => s.homework);
   const setHomework = useDataStore((s) => s.setHomework);
 
@@ -27,7 +26,7 @@ export default function HomeworkTracker() {
   const [sessionId, setSessionId] = useState(visibleSessions[0]?.id ?? "");
 
   const selectedSession = visibleSessions.find((s) => s.id === sessionId) ?? null;
-  const roster = getSessionRoster(selectedSession, classes, students);
+  const roster = getSessionRoster(selectedSession, students);
 
   const statusFor = (studentId: string) =>
     homework.find((h) => h.studentId === studentId && h.sessionId === sessionId)
