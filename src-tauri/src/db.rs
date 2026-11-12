@@ -86,6 +86,27 @@ async fn migrate(conn: &Connection) -> AppResult<()> {
         )
         .await?;
     }
+    backfill_rosters(conn).await
+}
+
+/// Students marked (attendance/homework) on a session before per-session
+/// rosters existed must be on that roster, or their records are hidden.
+/// INSERT OR IGNORE makes this a no-op once they are; it only ever adds rows.
+pub async fn backfill_rosters(conn: &Connection) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO session_students (session_id,student_id,added_by,added_at)
+         SELECT session_id, student_id, marked_by, MIN(marked_at)
+         FROM attendance GROUP BY session_id, student_id",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "INSERT OR IGNORE INTO session_students (session_id,student_id,added_by,added_at)
+         SELECT session_id, student_id, recorded_by, MIN(created_at)
+         FROM homework GROUP BY session_id, student_id",
+        (),
+    )
+    .await?;
     Ok(())
 }
 

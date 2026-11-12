@@ -172,3 +172,41 @@ async fn attendance_is_append_only_with_override_on_recorrection() {
         .count();
     assert_eq!(for_pair, 2, "append-only keeps the history");
 }
+
+#[tokio::test]
+async fn session_with_attendance_cannot_be_deleted_and_roster_is_backfilled() {
+    let (db, sessions, guard) = setup().await;
+    let token = login(&db, &sessions, &guard, "admin@trungtam.vn", "admin123").await;
+
+    // Pre-roster data: attendance exists but the student is not on the roster.
+    db.conn
+        .execute(
+            "INSERT INTO sessions (id,google_event_id,title,start_time,end_time,teacher_id,class_id,created_at,updated_at)
+             VALUES ('sess-old',NULL,'Buổi cũ','2026-01-01T09:00:00Z','2026-01-01T11:00:00Z','u-teacher-1',NULL,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')",
+            (),
+        )
+        .await
+        .unwrap();
+    db.conn
+        .execute(
+            "INSERT INTO attendance (id,student_id,session_id,status,marked_by,marked_at,is_override,created_at)
+             VALUES ('att-old','s-1','sess-old','absent','u-admin','2026-01-01T09:05:00Z',0,'2026-01-01T09:05:00Z')",
+            (),
+        )
+        .await
+        .unwrap();
+
+    // Deleting is refused with a readable error (not a raw FK failure).
+    let gcal = GCal::from_env(); // no env -> disabled
+    let err = delete_session_impl(&token, "sess-old".into(), &db, &sessions, &gcal)
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("không thể xóa"), "got: {err}");
+
+    // Backfill puts the marked student back on the roster (and is idempotent).
+    backfill_rosters(&db.conn).await.unwrap();
+    backfill_rosters(&db.conn).await.unwrap();
+    let list = list_sessions_impl(&token, &db, &sessions).await.unwrap();
+    let old = list.iter().find(|s| s.id == "sess-old").unwrap();
+    assert_eq!(old.student_ids, vec!["s-1".to_string()]);
+}

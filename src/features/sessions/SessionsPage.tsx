@@ -65,6 +65,7 @@ export default function SessionsPage() {
   const sessions = useDataStore((s) => s.sessions);
   const students = useDataStore((s) => s.students);
   const attendance = useDataStore((s) => s.attendance);
+  const homework = useDataStore((s) => s.homework);
   const markAttendance = useDataStore((s) => s.markAttendance);
   const addSessionStudents = useDataStore((s) => s.addSessionStudents);
   const removeSessionStudent = useDataStore((s) => s.removeSessionStudent);
@@ -118,6 +119,11 @@ export default function SessionsPage() {
     visible.find((s) => s.id === defaultId) ??
     null;
   const roster = getSessionRoster(selected, students);
+  // Attendance is proof, so a session with records can't be deleted.
+  const hasRecords =
+    !!selected &&
+    (attendance.some((a) => a.sessionId === selected.id) ||
+      homework.some((h) => h.sessionId === selected.id));
 
   const grouped = visible.reduce<Record<string, Session[]>>((acc, s) => {
     (acc[dayKey(s.startTime)] ??= []).push(s);
@@ -354,8 +360,14 @@ export default function SessionsPage() {
                       <Pencil size={15} /> Sửa
                     </button>
                     <button
-                      className="btn-outline text-rose-600 hover:bg-rose-50"
+                      className="btn-outline text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                       onClick={() => setDeleting(selected)}
+                      disabled={hasRecords}
+                      title={
+                        hasRecords
+                          ? "Buổi học đã có điểm danh hoặc bài tập nên không thể xóa"
+                          : undefined
+                      }
                     >
                       <Trash2 size={15} /> Xóa
                     </button>

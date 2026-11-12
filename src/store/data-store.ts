@@ -693,6 +693,12 @@ export const useDataStore = create<DataState>()(
       },
 
       deleteSession: async (id, actorId) => {
+        if (
+          get().attendance.some((a) => a.sessionId === id) ||
+          get().homework.some((h) => h.sessionId === id)
+        ) {
+          throw new Error("Buổi học đã có điểm danh hoặc bài tập nên không thể xóa.");
+        }
         if (hasRemoteBackend()) {
           const token = authToken();
           if (token) await backend.deleteSession(token, id);

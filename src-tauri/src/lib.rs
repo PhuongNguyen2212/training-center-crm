@@ -48,10 +48,13 @@ pub mod testkit {
     pub use crate::auth::{current_user, AuthUser, LoginGuard, Sessions};
     pub use crate::commands::attendance::{list_attendance_impl, mark_attendance_impl};
     pub use crate::commands::auth::{change_own_password_impl, login_impl, me_impl};
-    pub use crate::commands::sessions::add_session_students_impl;
+    pub use crate::commands::sessions::{
+        add_session_students_impl, delete_session_impl, list_sessions_impl,
+    };
     pub use crate::commands::students::{list_students_impl, soft_delete_student_impl};
-    pub use crate::db::{open_memory, Db};
+    pub use crate::db::{backfill_rosters, open_memory, Db};
     pub use crate::error::{AppError, AppResult};
+    pub use crate::gcal::GCal;
     pub use crate::models::LoginResponse;
     pub use crate::seed::seed_if_empty;
     pub use crate::server::test_router;
