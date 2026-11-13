@@ -99,7 +99,7 @@ export const backend = {
       body: { email, password },
     }),
   logout: (token: string) =>
-    isTauri() ? invoke<void>("logout", { token }) : Promise.resolve(),
+    call<void>("logout", { token }, { method: "POST", path: "/api/logout", token }),
   me: (token: string) =>
     call<User>("me", { token }, { method: "GET", path: "/api/me", token }),
   changeOwnPassword: (token: string, currentPassword: string, newPassword: string) =>

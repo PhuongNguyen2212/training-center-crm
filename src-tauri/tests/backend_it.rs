@@ -210,3 +210,97 @@ async fn session_with_attendance_cannot_be_deleted_and_roster_is_backfilled() {
     let old = list.iter().find(|s| s.id == "sess-old").unwrap();
     assert_eq!(old.student_ids, vec!["s-1".to_string()]);
 }
+
+#[tokio::test]
+async fn session_survives_server_restart() {
+    let (db, sessions, guard) = setup().await;
+    let token = login(&db, &sessions, &guard, "admin@trungtam.vn", "admin123").await;
+
+    // A restart loses the in-memory map; the DB row must bring the session back.
+    let after_restart = empty_sessions();
+    let user = current_user(&db, &after_restart, &token)
+        .await
+        .expect("session restored from DB");
+    assert_eq!(user.id, "u-admin");
+
+    // The raw token is never stored, only its hash.
+    let raw_hits: i64 = {
+        let mut rows = db
+            .conn
+            .query(
+                "SELECT COUNT(*) FROM auth_sessions WHERE token_hash = ?1",
+                libsql::params![token.clone()],
+            )
+            .await
+            .unwrap();
+        rows.next().await.unwrap().unwrap().get(0).unwrap()
+    };
+    assert_eq!(raw_hits, 0);
+}
+
+#[tokio::test]
+async fn expired_session_is_not_restored_after_restart() {
+    let (db, sessions, guard) = setup().await;
+    let token = login(&db, &sessions, &guard, "admin@trungtam.vn", "admin123").await;
+    // Last activity two hours ago → past the 60-minute idle window.
+    db.conn
+        .execute(
+            "UPDATE auth_sessions SET last_seen_ms = last_seen_ms - 7200000",
+            (),
+        )
+        .await
+        .unwrap();
+    assert!(current_user(&db, &empty_sessions(), &token).await.is_err());
+}
+
+#[tokio::test]
+async fn logout_ends_session_even_after_restart() {
+    let (db, sessions, guard) = setup().await;
+    let token = login(&db, &sessions, &guard, "admin@trungtam.vn", "admin123").await;
+    logout_impl(&token, &db, &sessions).await.unwrap();
+    assert!(current_user(&db, &sessions, &token).await.is_err());
+    assert!(current_user(&db, &empty_sessions(), &token).await.is_err());
+}
+
+#[tokio::test]
+async fn admin_password_reset_and_suspend_revoke_sessions() {
+    let (db, sessions, guard) = setup().await;
+    let admin = login(&db, &sessions, &guard, "admin@trungtam.vn", "admin123").await;
+    let teacher = login(&db, &sessions, &guard, "minh.gv@trungtam.vn", "teacher123").await;
+    let teacher_id = current_user(&db, &sessions, &teacher).await.unwrap().id;
+
+    reset_user_password_impl(
+        &admin,
+        teacher_id.clone(),
+        "newpass123".into(),
+        &db,
+        &sessions,
+    )
+    .await
+    .unwrap();
+    assert!(current_user(&db, &sessions, &teacher).await.is_err());
+    assert!(current_user(&db, &empty_sessions(), &teacher)
+        .await
+        .is_err());
+    // The admin's own session is untouched.
+    assert!(current_user(&db, &sessions, &admin).await.is_ok());
+
+    let again = login(&db, &sessions, &guard, "minh.gv@trungtam.vn", "newpass123").await;
+    set_user_status_impl(&admin, teacher_id, "suspended".into(), &db, &sessions)
+        .await
+        .unwrap();
+    // Gone from the DB too, not merely blocked by the status check.
+    let rows: i64 = {
+        let mut r = db
+            .conn
+            .query(
+                "SELECT COUNT(*) FROM auth_sessions WHERE user_id != 'u-admin'",
+                (),
+            )
+            .await
+            .unwrap();
+        r.next().await.unwrap().unwrap().get(0).unwrap()
+    };
+    assert_eq!(rows, 0);
+    assert!(current_user(&db, &sessions, &again).await.is_err());
+}

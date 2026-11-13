@@ -47,10 +47,11 @@ pub async fn backup_upload(key: &str, bytes: &[u8]) -> error::AppResult<()> {
 pub mod testkit {
     pub use crate::auth::{current_user, AuthUser, LoginGuard, Sessions};
     pub use crate::commands::attendance::{list_attendance_impl, mark_attendance_impl};
-    pub use crate::commands::auth::{change_own_password_impl, login_impl, me_impl};
+    pub use crate::commands::auth::{change_own_password_impl, login_impl, logout_impl, me_impl};
     pub use crate::commands::sessions::{
         add_session_students_impl, delete_session_impl, list_sessions_impl,
     };
+    pub use crate::commands::staff::{reset_user_password_impl, set_user_status_impl};
     pub use crate::commands::students::{list_students_impl, soft_delete_student_impl};
     pub use crate::db::{backfill_rosters, open_memory, Db};
     pub use crate::error::{AppError, AppResult};

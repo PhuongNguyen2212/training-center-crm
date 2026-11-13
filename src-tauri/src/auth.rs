@@ -1,6 +1,7 @@
 use crate::db::Db;
 use crate::error::{AppError, AppResult};
 use crate::util::now_ms;
+use libsql::Connection;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -12,52 +13,170 @@ pub const SESSION_IDLE_MS: i64 = 60 * 60_000;
 /// …or 12 hours after login, whichever comes first (absolute lifetime).
 pub const SESSION_ABSOLUTE_MS: i64 = 12 * 3_600_000;
 
+/// Write a session's `last_seen_ms` back to the DB at most this often, so a
+/// busy user doesn't cost one extra DB write per request. After a restart the
+/// idle window may therefore be up to this much shorter than 60 minutes.
+pub const SESSION_PERSIST_EVERY_MS: i64 = 60_000;
+
 /// One logged-in session: who it belongs to and when it was created/last used.
 pub struct SessionEntry {
     pub user_id: String,
     pub created_ms: i64,
     pub last_seen_ms: i64,
+    /// The `last_seen_ms` value last written to the DB.
+    pub persisted_ms: i64,
 }
 
-/// token -> session. In-memory; cleared when the app restarts. All access goes
-/// through the methods below so expiry is enforced in exactly one place.
+/// token -> session. The map is a cache in front of the `auth_sessions` table,
+/// so sessions survive a server restart / redeploy: a token missing from memory
+/// is looked up in the DB. Only a SHA-256 of the token is stored, so a DB dump
+/// does not hand out live tokens. All access goes through the methods below so
+/// expiry is enforced in exactly one place.
 pub struct Sessions(pub Mutex<HashMap<String, SessionEntry>>);
 
+/// Outcome of checking a token against the in-memory cache.
+enum Cached {
+    Live {
+        user_id: String,
+        persist: Option<i64>,
+    },
+    Expired,
+    Missing,
+}
+
+fn is_expired(now: i64, created_ms: i64, last_seen_ms: i64) -> bool {
+    now - created_ms > SESSION_ABSOLUTE_MS || now - last_seen_ms > SESSION_IDLE_MS
+}
+
+/// Hex SHA-256 of a token — the DB key, never the raw token.
+pub fn token_hash(token: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(token.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
 impl Sessions {
-    /// Register a fresh session for `user_id` under `token`.
-    pub fn insert(&self, token: &str, user_id: &str) {
+    /// Register a fresh session for `user_id` under `token`, in memory and DB.
+    /// Also prunes expired rows so the table doesn't grow without bound.
+    pub async fn insert(&self, conn: &Connection, token: &str, user_id: &str) -> AppResult<()> {
         let now = now_ms();
+        conn.execute(
+            "INSERT INTO auth_sessions (token_hash,user_id,created_ms,last_seen_ms)
+             VALUES (?1,?2,?3,?3)",
+            libsql::params![token_hash(token), user_id.to_string(), now],
+        )
+        .await?;
+        conn.execute(
+            "DELETE FROM auth_sessions WHERE created_ms < ?1 OR last_seen_ms < ?2",
+            libsql::params![now - SESSION_ABSOLUTE_MS, now - SESSION_IDLE_MS],
+        )
+        .await?;
+        self.insert_local(token, user_id, now, now);
+        Ok(())
+    }
+
+    fn insert_local(&self, token: &str, user_id: &str, created_ms: i64, last_seen_ms: i64) {
         self.0.lock().insert(
             token.to_string(),
             SessionEntry {
                 user_id: user_id.to_string(),
-                created_ms: now,
-                last_seen_ms: now,
+                created_ms,
+                last_seen_ms,
+                persisted_ms: last_seen_ms,
             },
         );
     }
 
-    /// Drop a session (logout).
-    pub fn remove(&self, token: &str) {
+    /// Drop a session (logout), in memory and DB.
+    pub async fn remove(&self, conn: &Connection, token: &str) -> AppResult<()> {
         self.0.lock().remove(token);
+        conn.execute(
+            "DELETE FROM auth_sessions WHERE token_hash = ?1",
+            libsql::params![token_hash(token)],
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Check the in-memory cache, sliding the idle window of a live session.
+    fn resolve_cached(&self, token: &str, now: i64) -> Cached {
+        let mut map = self.0.lock();
+        let Some(e) = map.get_mut(token) else {
+            return Cached::Missing;
+        };
+        if is_expired(now, e.created_ms, e.last_seen_ms) {
+            map.remove(token);
+            return Cached::Expired;
+        }
+        e.last_seen_ms = now;
+        let persist = (now - e.persisted_ms >= SESSION_PERSIST_EVERY_MS).then(|| {
+            e.persisted_ms = now;
+            now
+        });
+        Cached::Live {
+            user_id: e.user_id.clone(),
+            persist,
+        }
     }
 
     /// Resolve a token to its user id, enforcing idle + absolute expiry.
-    /// A live session has its `last_seen_ms` refreshed (sliding idle window);
+    /// A live session has its last-seen time refreshed (sliding idle window);
     /// an expired one is evicted and `None` is returned.
-    pub fn resolve(&self, token: &str) -> Option<String> {
-        let now = now_ms();
-        let mut map = self.0.lock();
-        let entry = map.get(token)?;
-        let expired = now - entry.created_ms > SESSION_ABSOLUTE_MS
-            || now - entry.last_seen_ms > SESSION_IDLE_MS;
-        if expired {
-            map.remove(token);
-            return None;
+    pub async fn resolve(&self, conn: &Connection, token: &str) -> AppResult<Option<String>> {
+        if token.is_empty() {
+            return Ok(None);
         }
-        let e = map.get_mut(token).expect("checked above");
-        e.last_seen_ms = now;
-        Some(e.user_id.clone())
+        let now = now_ms();
+        match self.resolve_cached(token, now) {
+            Cached::Live { user_id, persist } => {
+                if let Some(ts) = persist {
+                    conn.execute(
+                        "UPDATE auth_sessions SET last_seen_ms = ?2 WHERE token_hash = ?1",
+                        libsql::params![token_hash(token), ts],
+                    )
+                    .await?;
+                }
+                Ok(Some(user_id))
+            }
+            Cached::Expired => {
+                self.remove(conn, token).await?;
+                Ok(None)
+            }
+            Cached::Missing => {
+                // Not in memory: the server may have restarted since login.
+                let row = crate::db::query_opt(
+                    conn,
+                    "SELECT user_id,created_ms,last_seen_ms FROM auth_sessions
+                     WHERE token_hash = ?1",
+                    libsql::params![token_hash(token)],
+                    |r| Ok((r.get::<String>(0)?, r.get::<i64>(1)?, r.get::<i64>(2)?)),
+                )
+                .await?;
+                let Some((user_id, created_ms, last_seen_ms)) = row else {
+                    return Ok(None);
+                };
+                if is_expired(now, created_ms, last_seen_ms) {
+                    self.remove(conn, token).await?;
+                    return Ok(None);
+                }
+                self.insert_local(token, &user_id, created_ms, last_seen_ms);
+                // Slide the window (and persist, since last_seen is stale).
+                Box::pin(self.resolve(conn, token)).await
+            }
+        }
+    }
+
+    /// End every session of one user (e.g. after a password change or reset).
+    pub async fn remove_user(&self, conn: &Connection, user_id: &str) -> AppResult<()> {
+        self.0.lock().retain(|_, e| e.user_id != user_id);
+        conn.execute(
+            "DELETE FROM auth_sessions WHERE user_id = ?1",
+            libsql::params![user_id.to_string()],
+        )
+        .await?;
+        Ok(())
     }
 }
 
@@ -101,7 +220,8 @@ impl AuthUser {
 /// from the DB** (never trusting anything the frontend passes beyond the token).
 pub async fn current_user(db: &Db, sessions: &Sessions, token: &str) -> AppResult<AuthUser> {
     let user_id = sessions
-        .resolve(token)
+        .resolve(&db.conn, token)
+        .await?
         .ok_or_else(|| AppError::new("Chưa đăng nhập hoặc phiên đã hết hạn."))?;
 
     let row = crate::db::query_opt(
@@ -343,27 +463,65 @@ mod tests {
         assert!(require_capability(&teacher, Capability::StudentDelete).is_err());
     }
 
+    fn live_user(c: Cached) -> Option<String> {
+        match c {
+            Cached::Live { user_id, .. } => Some(user_id),
+            _ => None,
+        }
+    }
+
+    fn sessions_with(token: &str, user_id: &str) -> Sessions {
+        let s = Sessions(Mutex::new(HashMap::new()));
+        let now = now_ms();
+        s.insert_local(token, user_id, now, now);
+        s
+    }
+
     #[test]
     fn session_resolves_and_refreshes_idle_window() {
-        let sessions = Sessions(Mutex::new(HashMap::new()));
-        assert!(sessions.resolve("missing").is_none());
+        let sessions = sessions_with("tok", "u-1");
+        assert!(matches!(
+            sessions.resolve_cached("missing", now_ms()),
+            Cached::Missing
+        ));
 
-        sessions.insert("tok", "u-1");
         let seen_before = sessions.0.lock().get("tok").unwrap().last_seen_ms;
         // Backdate activity a bit (still inside the idle window)…
         sessions.0.lock().get_mut("tok").unwrap().last_seen_ms -= 10_000;
-        assert_eq!(sessions.resolve("tok").as_deref(), Some("u-1"));
+        let got = sessions.resolve_cached("tok", now_ms());
+        assert_eq!(live_user(got).as_deref(), Some("u-1"));
         // …and a successful resolve slides the window forward again.
-        assert!(sessions.0.lock().get("tok").unwrap().last_seen_ms >= seen_before - 1_000);
+        assert!(sessions.0.lock().get("tok").unwrap().last_seen_ms >= seen_before);
+    }
+
+    #[test]
+    fn session_persists_last_seen_at_most_once_per_interval() {
+        let sessions = sessions_with("tok", "u-1");
+        let now = now_ms();
+        // Just written at login → no DB write needed yet.
+        assert!(matches!(
+            sessions.resolve_cached("tok", now),
+            Cached::Live { persist: None, .. }
+        ));
+        // A minute later → write back once…
+        let later = now + SESSION_PERSIST_EVERY_MS;
+        assert!(matches!(
+            sessions.resolve_cached("tok", later),
+            Cached::Live { persist: Some(t), .. } if t == later
+        ));
+        // …and not again on the very next request.
+        assert!(matches!(
+            sessions.resolve_cached("tok", later + 1),
+            Cached::Live { persist: None, .. }
+        ));
     }
 
     #[test]
     fn session_expires_after_idle_timeout() {
-        let sessions = Sessions(Mutex::new(HashMap::new()));
-        sessions.insert("tok", "u-1");
+        let sessions = sessions_with("tok", "u-1");
         sessions.0.lock().get_mut("tok").unwrap().last_seen_ms -= SESSION_IDLE_MS + 60_000;
         assert!(
-            sessions.resolve("tok").is_none(),
+            matches!(sessions.resolve_cached("tok", now_ms()), Cached::Expired),
             "idle-expired session rejected"
         );
         assert!(
@@ -374,22 +532,23 @@ mod tests {
 
     #[test]
     fn session_expires_after_absolute_lifetime_despite_activity() {
-        let sessions = Sessions(Mutex::new(HashMap::new()));
-        sessions.insert("tok", "u-1");
+        let sessions = sessions_with("tok", "u-1");
         // Recently active, but created beyond the absolute lifetime.
         sessions.0.lock().get_mut("tok").unwrap().created_ms -= SESSION_ABSOLUTE_MS + 60_000;
         assert!(
-            sessions.resolve("tok").is_none(),
+            matches!(sessions.resolve_cached("tok", now_ms()), Cached::Expired),
             "absolute-expired session rejected"
         );
     }
 
     #[test]
-    fn logout_removes_session() {
-        let sessions = Sessions(Mutex::new(HashMap::new()));
-        sessions.insert("tok", "u-1");
-        sessions.remove("tok");
-        assert!(sessions.resolve("tok").is_none());
+    fn token_hash_is_stable_hex_and_hides_the_token() {
+        let h = token_hash("abc");
+        assert_eq!(
+            h,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert!(!h.contains("abc"));
     }
 
     #[test]

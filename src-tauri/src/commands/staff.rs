@@ -124,6 +124,10 @@ pub async fn set_user_status_impl(
             libsql::params![id.clone(), status.clone(), now_iso()],
         )
         .await?;
+    if status == "suspended" {
+        // Kick a suspended user out everywhere, not just at their next request.
+        sessions.remove_user(&db.conn, &id).await?;
+    }
     let action = if status == "suspended" {
         "staff.suspend"
     } else {
@@ -187,6 +191,8 @@ pub async fn reset_user_password_impl(
             libsql::params![id.clone(), hash, now_iso()],
         )
         .await?;
+    // Whoever held the old password must not stay logged in with it.
+    sessions.remove_user(&db.conn, &id).await?;
     write_audit(
         &db.conn,
         &actor.id,
