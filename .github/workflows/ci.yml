@@ -37,6 +37,10 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # The build refuses to run without an API URL (see vite.config.ts);
+          # CI only checks that it compiles, so any URL will do.
+          VITE_API_URL: https://api.example.invalid
 
   backend:
     name: Backend (Rust)
