@@ -12,7 +12,7 @@ import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
 import { can } from "@/lib/permissions";
 import { ROLE_LABELS, USER_STATUS_LABELS, formatDate } from "@/lib/labels";
-import { Badge, EmptyState, NoAccess, PageHeader } from "@/components/ui";
+import { Badge, EmptyState, MobileCard, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import { checkPasswordStrength } from "@/lib/crypto";
 import { errorMessage } from "@/lib/error";
@@ -79,6 +79,48 @@ export default function StaffPage() {
 
   if (!can(me.role, "users.manage")) return <NoAccess />;
 
+  const actionsFor = (u: User, isSelf: boolean) => (
+    <>
+      <button
+        className="btn-ghost p-1.5"
+        title="Sửa vai trò"
+        onClick={() => setEditing(u)}
+      >
+        <Pencil size={15} />
+      </button>
+      <button
+        className="btn-ghost p-1.5"
+        title="Đặt lại mật khẩu"
+        onClick={() => setResetting(u)}
+      >
+        <KeyRound size={15} />
+      </button>
+      {/* Can't suspend yourself — prevents self-lockout. */}
+      {!isSelf &&
+        (u.status === "active" ? (
+          <button
+            className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
+            title="Treo tài khoản"
+            onClick={() =>
+              notify(setStaffStatus(u.id, "suspended", me.id))
+            }
+          >
+            <ShieldBan size={15} />
+          </button>
+        ) : (
+          <button
+            className="btn-ghost p-1.5 text-emerald-600 hover:bg-emerald-50"
+            title="Kích hoạt lại"
+            onClick={() =>
+              notify(setStaffStatus(u.id, "active", me.id))
+            }
+          >
+            <ShieldCheck size={15} />
+          </button>
+        ))}
+    </>
+  );
+
   return (
     <div>
       <PageHeader
@@ -95,97 +137,98 @@ export default function StaffPage() {
         {users.length === 0 ? (
           <EmptyState message="Chưa có tài khoản nào." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Họ và tên</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Vai trò</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">Ngày tạo</th>
-                  <th className="px-4 py-3 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => {
-                  const isSelf = u.id === me.id;
-                  return (
-                    <tr
-                      key={u.id}
-                      className="border-t border-slate-100 hover:bg-slate-50"
-                    >
-                      <td className="px-4 py-3 font-medium text-slate-800">
+          <>
+            <div className="md:hidden">
+              {users.map((u) => {
+                const isSelf = u.id === me.id;
+                return (
+                  <MobileCard
+                    key={u.id}
+                    title={
+                      <>
                         {u.name}
                         {isSelf && (
                           <span className="ml-2 text-xs text-brand-500">(bạn)</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {ROLE_LABELS[u.role]}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          className={
-                            u.status === "active"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-rose-100 text-rose-800"
-                          }
-                        >
-                          {USER_STATUS_LABELS[u.status]}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">
-                        {formatDate(u.createdAt)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            className="btn-ghost p-1.5"
-                            title="Sửa vai trò"
-                            onClick={() => setEditing(u)}
+                      </>
+                    }
+                    subtitle={u.email}
+                    badge={
+                      <Badge
+                        className={
+                          u.status === "active"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-rose-100 text-rose-800"
+                        }
+                      >
+                        {USER_STATUS_LABELS[u.status]}
+                      </Badge>
+                    }
+                    fields={[
+                      { label: "Vai trò", value: ROLE_LABELS[u.role] },
+                      { label: "Ngày tạo", value: formatDate(u.createdAt) },
+                    ]}
+                    actions={actionsFor(u, isSelf)}
+                  />
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Họ và tên</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Vai trò</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3">Ngày tạo</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => {
+                    const isSelf = u.id === me.id;
+                    return (
+                      <tr
+                        key={u.id}
+                        className="border-t border-slate-100 hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3 font-medium text-slate-800">
+                          {u.name}
+                          {isSelf && (
+                            <span className="ml-2 text-xs text-brand-500">(bạn)</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{u.email}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {ROLE_LABELS[u.role]}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={
+                              u.status === "active"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                            }
                           >
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            className="btn-ghost p-1.5"
-                            title="Đặt lại mật khẩu"
-                            onClick={() => setResetting(u)}
-                          >
-                            <KeyRound size={15} />
-                          </button>
-                          {/* Can't suspend yourself — prevents self-lockout. */}
-                          {!isSelf &&
-                            (u.status === "active" ? (
-                              <button
-                                className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
-                                title="Treo tài khoản"
-                                onClick={() =>
-                                  notify(setStaffStatus(u.id, "suspended", me.id))
-                                }
-                              >
-                                <ShieldBan size={15} />
-                              </button>
-                            ) : (
-                              <button
-                                className="btn-ghost p-1.5 text-emerald-600 hover:bg-emerald-50"
-                                title="Kích hoạt lại"
-                                onClick={() =>
-                                  notify(setStaffStatus(u.id, "active", me.id))
-                                }
-                              >
-                                <ShieldCheck size={15} />
-                              </button>
-                            ))}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                            {USER_STATUS_LABELS[u.status]}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {formatDate(u.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-1">
+                            {actionsFor(u, isSelf)}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

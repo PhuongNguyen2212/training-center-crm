@@ -11,7 +11,7 @@ import {
 import { exportCsv, dateStamp, type CsvColumn } from "@/lib/csv";
 import { errorMessage } from "@/lib/error";
 import { notify } from "@/store/toast-store";
-import { Badge, EmptyState, NoAccess, PageHeader } from "@/components/ui";
+import { Badge, EmptyState, MobileCard, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import type { EnrollmentStatus, Student } from "@/types";
 import { StudentForm } from "./StudentForm";
@@ -111,6 +111,27 @@ export default function StudentsPage() {
     }
   };
 
+  const actionsFor = (s: Student) => (
+    <>
+      <button
+        className="btn-ghost p-1.5"
+        onClick={() => openEdit(s)}
+        title="Sửa"
+      >
+        <Pencil size={15} />
+      </button>
+      {user.role === "admin" && (
+        <button
+          className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
+          onClick={() => setDeleting(s)}
+          title="Ẩn (soft delete)"
+        >
+          <Trash2 size={15} />
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div>
       <PageHeader
@@ -168,79 +189,95 @@ export default function StudentsPage() {
         {students.length === 0 ? (
           <EmptyState message="Chưa có học viên nào." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Họ và tên</th>
-                  <th className="px-4 py-3">Tuổi</th>
-                  <th className="px-4 py-3">Điện thoại</th>
-                  <th className="px-4 py-3">Nguyện vọng</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">CCCD</th>
-                  <th className="px-4 py-3">Ngày tạo</th>
-                  {canEdit && <th className="px-4 py-3 text-right">Thao tác</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s) => (
-                  <tr
-                    key={s.id}
-                    className="border-t border-slate-100 hover:bg-slate-50"
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {s.name}
-                      <span className="block text-xs font-normal text-slate-400">
-                        {s.jobTitle}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{s.age ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{s.phone ?? "—"}</td>
-                    <td className="px-4 py-3 max-w-[200px] truncate text-slate-600">
-                      {s.goal ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className={ENROLLMENT_BADGE[s.enrollmentStatus]}>
-                        {ENROLLMENT_LABELS[s.enrollmentStatus]}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {s.cccdNumber ? (
-                        <code className="text-xs">{s.cccdNumber}</code>
+          <>
+            <div className="md:hidden">
+              {students.map((s) => (
+                <MobileCard
+                  key={s.id}
+                  title={s.name}
+                  subtitle={s.jobTitle}
+                  badge={
+                    <Badge className={ENROLLMENT_BADGE[s.enrollmentStatus]}>
+                      {ENROLLMENT_LABELS[s.enrollmentStatus]}
+                    </Badge>
+                  }
+                  fields={[
+                    {
+                      label: "Điện thoại",
+                      value: s.phone ? (
+                        <a className="text-brand-600" href={`tel:${s.phone}`}>
+                          {s.phone}
+                        </a>
                       ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {formatDate(s.createdAt)}
-                    </td>
-                    {canEdit && (
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            className="btn-ghost p-1.5"
-                            onClick={() => openEdit(s)}
-                            title="Sửa"
-                          >
-                            <Pencil size={15} />
-                          </button>
-                          {user.role === "admin" && (
-                            <button
-                              className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
-                              onClick={() => setDeleting(s)}
-                              title="Ẩn (soft delete)"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                        "—"
+                      ),
+                    },
+                    { label: "Tuổi", value: s.age ?? "—" },
+                    { label: "CCCD", value: s.cccdNumber ?? "—" },
+                    { label: "Ngày tạo", value: formatDate(s.createdAt) },
+                    { label: "Nguyện vọng", value: s.goal ?? "—", wide: true },
+                  ]}
+                  actions={canEdit ? actionsFor(s) : undefined}
+                />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Họ và tên</th>
+                    <th className="px-4 py-3">Tuổi</th>
+                    <th className="px-4 py-3">Điện thoại</th>
+                    <th className="px-4 py-3">Nguyện vọng</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3">CCCD</th>
+                    <th className="px-4 py-3">Ngày tạo</th>
+                    {canEdit && <th className="px-4 py-3 text-right">Thao tác</th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {students.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="border-t border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-800">
+                        {s.name}
+                        <span className="block text-xs font-normal text-slate-400">
+                          {s.jobTitle}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{s.age ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-600">{s.phone ?? "—"}</td>
+                      <td className="px-4 py-3 max-w-[200px] truncate text-slate-600">
+                        {s.goal ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className={ENROLLMENT_BADGE[s.enrollmentStatus]}>
+                          {ENROLLMENT_LABELS[s.enrollmentStatus]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {s.cccdNumber ? (
+                          <code className="text-xs">{s.cccdNumber}</code>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {formatDate(s.createdAt)}
+                      </td>
+                      {canEdit && (
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-1">{actionsFor(s)}</div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -261,18 +298,18 @@ export default function StudentsPage() {
         onClose={() => setDeleting(null)}
         footer={
           <>
-            <button className="btn-outline" onClick={() => setDeleting(null)}>
-              Hủy
-            </button>
-            <button
-              className="btn-danger"
-              onClick={() => {
-                if (deleting) notify(softDeleteStudent(deleting.id, user.id));
-                setDeleting(null);
-              }}
-            >
-              Xác nhận ẩn
-            </button>
+              <button className="btn-outline" onClick={() => setDeleting(null)}>
+                Hủy
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => {
+                  if (deleting) notify(softDeleteStudent(deleting.id, user.id));
+                  setDeleting(null);
+                }}
+              >
+                Xác nhận ẩn
+              </button>
           </>
         }
       >

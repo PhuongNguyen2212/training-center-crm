@@ -74,3 +74,56 @@ export function StatCard({
     </div>
   );
 }
+
+export interface MobileField {
+  label: string;
+  value: ReactNode;
+  /** Span both columns (long text such as a goal or note). */
+  wide?: boolean;
+}
+
+/**
+ * One table row rendered as a stacked card for phone screens. Pages show their
+ * `<table>` from `md` up (`hidden md:block`) and a list of these below it
+ * (`md:hidden`), sharing the same row data and action buttons.
+ */
+export function MobileCard({
+  title,
+  subtitle,
+  badge,
+  fields = [],
+  actions,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  badge?: ReactNode;
+  fields?: MobileField[];
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="border-t border-slate-100 p-4 first:border-t-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="break-words font-medium text-slate-800">{title}</div>
+          {subtitle && <div className="mt-0.5 text-xs text-slate-400">{subtitle}</div>}
+        </div>
+        {badge && <div className="shrink-0">{badge}</div>}
+      </div>
+      {fields.length > 0 && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          {fields.map((f) => (
+            <div key={f.label} className={`min-w-0 ${f.wide ? "col-span-2" : ""}`}>
+              <dt className="text-xs text-slate-400">{f.label}</dt>
+              <dd className="break-words text-slate-700">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {actions && (
+        <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
+          {actions}
+        </div>
+      )}
+    </div>
+  );
+}
