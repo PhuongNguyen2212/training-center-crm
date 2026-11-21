@@ -50,6 +50,8 @@ bcrypt = "0.19"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["clock"] }
 parking_lot = "0.12"
+# Hash session tokens before storing them in the DB.
+sha2 = "0.10"
 base64 = "0.22"
 # Cloudflare R2 (S3-compatible) for payment document files — rustls (no OpenSSL/LLVM).
 rust-s3 = { version = "0.37", default-features = false, features = ["tokio-rustls-tls"] }

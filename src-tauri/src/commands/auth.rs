@@ -75,7 +75,7 @@ pub async fn login_impl(
 
     clear_failures(guard, &key);
     let token = new_id();
-    sessions.insert(&token, &id);
+    sessions.insert(&db.conn, &token, &id).await?;
     let _ = write_audit(&db.conn, &id, "login", "Đăng nhập hệ thống").await;
 
     Ok(LoginResponse {
@@ -155,6 +155,10 @@ pub async fn change_own_password_impl(
     Ok(())
 }
 
+pub async fn logout_impl(token: &str, db: &Db, sessions: &Sessions) -> AppResult<()> {
+    sessions.remove(&db.conn, token).await
+}
+
 // ---- Tauri command wrappers ----
 
 #[cfg(feature = "desktop")]
@@ -171,9 +175,12 @@ pub async fn login(
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub fn logout(token: String, sessions: State<Sessions>) -> AppResult<()> {
-    sessions.remove(&token);
-    Ok(())
+pub async fn logout(
+    token: String,
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<()> {
+    logout_impl(&token, &db.fresh(), &sessions).await
 }
 
 #[cfg(feature = "desktop")]

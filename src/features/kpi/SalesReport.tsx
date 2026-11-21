@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Percent, TrendingUp, UserCheck, Users } from "lucide-react";
 import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
-import { StatCard } from "@/components/ui";
+import { MobileCard, StatCard } from "@/components/ui";
 import { formatVND } from "@/lib/labels";
 
 function statsFor(
@@ -88,7 +88,29 @@ export default function SalesReport() {
   // Admin: comparison table across all salespeople.
   return (
     <div className="card overflow-hidden">
-      <table className="w-full text-sm">
+      <div className="md:hidden">
+        {rows.map((r) => (
+          <MobileCard
+            key={r.person.id}
+            title={r.person.name}
+            badge={
+              <span className="font-medium text-brand-600">
+                {r.conversion}% chuyển đổi
+              </span>
+            }
+            fields={[
+              { label: "HV mới (tháng)", value: r.newThisMonth },
+              { label: "Tổng HV", value: r.total },
+              { label: "Đã xác nhận", value: r.confirmed },
+              {
+                label: "Doanh thu",
+                value: <span className="font-medium">{formatVND(r.revenue)}</span>,
+              },
+            ]}
+          />
+        ))}
+      </div>
+      <table className="hidden w-full text-sm md:table">
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
           <tr>
             <th className="px-4 py-3">Nhân viên tư vấn</th>

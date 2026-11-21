@@ -13,7 +13,7 @@ import { useDataStore } from "@/store/data-store";
 import { useAuthStore } from "@/store/auth-store";
 import { can } from "@/lib/permissions";
 import { formatDate, formatVND } from "@/lib/labels";
-import { EmptyState, NoAccess, PageHeader } from "@/components/ui";
+import { EmptyState, MobileCard, NoAccess, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import { verifyPassword } from "@/lib/crypto";
 import { exportCsv, dateStamp, type CsvColumn } from "@/lib/csv";
@@ -148,60 +148,38 @@ export default function FinancePage() {
         {visible.length === 0 ? (
           <EmptyState message="Chưa có chứng từ thanh toán." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Tệp</th>
-                  <th className="px-4 py-3">Học viên</th>
-                  <th className="px-4 py-3">Số tiền</th>
-                  <th className="px-4 py-3">Ngày TT</th>
-                  <th className="px-4 py-3">Ghi chú</th>
-                  <th className="px-4 py-3">Người tải</th>
-                  {canDelete && <th className="px-4 py-3 text-right">Thao tác</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="border-t border-slate-100 hover:bg-slate-50"
-                  >
-                    <td className="px-4 py-3">
+          <>
+            <div className="md:hidden">
+              {visible.map((d) => (
+                <MobileCard
+                  key={d.id}
+                  title={studentName(d.studentId)}
+                  subtitle={formatDate(d.paymentDate)}
+                  badge={
+                    <span className="font-semibold text-slate-800">
+                      {formatVND(d.amount)}
+                    </span>
+                  }
+                  fields={[
+                    { label: "Người tải", value: uploaderName(d.uploadedBy) },
+                    {
+                      label: "Tệp",
+                      value: (
+                        <span className="block truncate">{d.fileName}</span>
+                      ),
+                    },
+                    ...(d.note ? [{ label: "Ghi chú", value: d.note, wide: true }] : []),
+                  ]}
+                  actions={
+                    <>
                       <button
                         type="button"
+                        className="btn-outline px-3 py-1.5 text-xs"
                         onClick={() => openDoc(d.id)}
-                        title="Xem tệp"
-                        className="flex items-center gap-2 text-slate-700 hover:text-sky-700"
                       >
-                        {d.fileType === "application/pdf" ? (
-                          <FileText size={16} className="text-rose-500" />
-                        ) : (
-                          <FileImage size={16} className="text-sky-500" />
-                        )}
-                        <span className="max-w-[160px] truncate underline-offset-2 hover:underline">
-                          {d.fileName}
-                        </span>
-                        <Eye size={14} className="text-slate-400" />
+                        <Eye size={14} /> Xem chứng từ
                       </button>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {studentName(d.studentId)}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {formatVND(d.amount)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {formatDate(d.paymentDate)}
-                    </td>
-                    <td className="px-4 py-3 max-w-[180px] truncate text-slate-500">
-                      {d.note ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {uploaderName(d.uploadedBy)}
-                    </td>
-                    {canDelete && (
-                      <td className="px-4 py-3 text-right">
+                      {canDelete && (
                         <button
                           className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
                           onClick={() => setDeleting(d)}
@@ -209,13 +187,81 @@ export default function FinancePage() {
                         >
                           <Trash2 size={15} />
                         </button>
-                      </td>
-                    )}
+                      )}
+                    </>
+                  }
+                />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Tệp</th>
+                    <th className="px-4 py-3">Học viên</th>
+                    <th className="px-4 py-3">Số tiền</th>
+                    <th className="px-4 py-3">Ngày TT</th>
+                    <th className="px-4 py-3">Ghi chú</th>
+                    <th className="px-4 py-3">Người tải</th>
+                    {canDelete && <th className="px-4 py-3 text-right">Thao tác</th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {visible.map((d) => (
+                    <tr
+                      key={d.id}
+                      className="border-t border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => openDoc(d.id)}
+                          title="Xem tệp"
+                          className="flex items-center gap-2 text-slate-700 hover:text-sky-700"
+                        >
+                          {d.fileType === "application/pdf" ? (
+                            <FileText size={16} className="text-rose-500" />
+                          ) : (
+                            <FileImage size={16} className="text-sky-500" />
+                          )}
+                          <span className="max-w-[160px] truncate underline-offset-2 hover:underline">
+                            {d.fileName}
+                          </span>
+                          <Eye size={14} className="text-slate-400" />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {studentName(d.studentId)}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-800">
+                        {formatVND(d.amount)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {formatDate(d.paymentDate)}
+                      </td>
+                      <td className="px-4 py-3 max-w-[180px] truncate text-slate-500">
+                        {d.note ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {uploaderName(d.uploadedBy)}
+                      </td>
+                      {canDelete && (
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            className="btn-ghost p-1.5 text-rose-600 hover:bg-rose-50"
+                            onClick={() => setDeleting(d)}
+                            title="Xóa (cần xác thực admin)"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

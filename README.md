@@ -181,7 +181,7 @@ Copy [.env.example](./.env.example) to `.env` and fill in your values. Secrets a
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Hosted libSQL database |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` | Cloudflare R2 for payment-proof files |
 | `GOOGLE_CALENDAR_ID`, `GOOGLE_SERVICE_ACCOUNT_FILE` | Shared Google Calendar (service account) |
-| `VITE_API_URL` | Web → server URL (empty = standalone demo) |
+| `VITE_API_URL` | Web → server URL. **Required** for `npm run build`; set `VITE_DEMO=true` instead for a deliberate localStorage demo |
 | `ALLOWED_ORIGINS` | **Production** CORS allow-list (e.g. your Vercel URL) |
 
 ---

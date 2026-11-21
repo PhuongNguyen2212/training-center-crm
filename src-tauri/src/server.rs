@@ -8,7 +8,7 @@ use crate::commands::attendance::{
     list_attendance_impl, list_homework_impl, mark_attendance_impl, set_homework_impl,
 };
 use crate::commands::audit::list_audit_impl;
-use crate::commands::auth::{change_own_password_impl, login_impl, me_impl};
+use crate::commands::auth::{change_own_password_impl, login_impl, logout_impl, me_impl};
 use crate::commands::payments::{
     create_payment_doc_impl, list_payment_docs_impl, read_payment_doc_impl,
     soft_delete_payment_doc_impl,
@@ -129,6 +129,10 @@ async fn login(State(st): State<AppState>, Json(body): Json<LoginBody>) -> Respo
         Ok(resp) => Json(resp).into_response(),
         Err(e) => err(e),
     }
+}
+
+async fn logout(State(st): State<AppState>, headers: HeaderMap) -> Response {
+    out(logout_impl(&bearer(&headers), &st.db.fresh(), &st.sessions).await)
 }
 
 async fn me(State(st): State<AppState>, headers: HeaderMap) -> Response {
@@ -455,6 +459,7 @@ fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/login", post(login))
+        .route("/api/logout", post(logout))
         .route("/api/me", get(me))
         .route("/api/account/password", post(change_password))
         .route("/api/students", get(students_list).post(students_create))
